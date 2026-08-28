@@ -20,38 +20,52 @@ import {
   getAllDebtors,
   createDebtor,
   updateDebtor,
+  deleteDebtor,
   getAllDebtorTransactions,
   createDebtorTransaction,
+  updateDebtorTransaction,
+  deleteDebtorTransaction,
   getAllSuppliers,
   createSupplier,
   updateSupplier,
+  deleteSupplier,
   getAllSupplierTransactions,
   createSupplierTransaction,
+  updateSupplierTransaction,
+  deleteSupplierTransaction,
   getAllStockReconciliations,
   createStockReconciliation,
   updateStockReconciliation,
   getAllCashMovements,
   createCashMovement,
   updateCashMovement,
+  deleteCashMovement,
   getOwnerTreasury,
   updateOwnerTreasury,
   getAllBankRecords,
   createBankRecord,
+  updateBankRecord,
+  deleteBankRecord,
   getAllCashRecords,
   createCashRecord,
+  updateCashRecord,
+  deleteCashRecord,
   getAllAirtelRecords,
   createAirtelRecord,
+  updateAirtelRecord,
+  deleteAirtelRecord,
   getAllAirtelMoneyRecords,
   createAirtelMoneyRecord,
   getAllStockTransfers,
   createStockTransfer,
   updateStockTransfer,
+  deleteStockTransfer,
   getOrCreateUser,
 } from './src/db/queries.ts';
 import { optionalAuth, requireAuth, AuthRequest } from './src/middleware/auth.ts';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -287,6 +301,15 @@ app.patch('/api/debtors/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/debtors/:id', async (req, res) => {
+  try {
+    const data = await deleteDebtor(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/debtor-transactions', async (req, res) => {
   try {
     const data = await getAllDebtorTransactions();
@@ -299,6 +322,24 @@ app.get('/api/debtor-transactions', async (req, res) => {
 app.post('/api/debtor-transactions', async (req, res) => {
   try {
     const data = await createDebtorTransaction(req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/debtor-transactions/:id', async (req, res) => {
+  try {
+    const data = await updateDebtorTransaction(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/debtor-transactions/:id', async (req, res) => {
+  try {
+    const data = await deleteDebtorTransaction(req.params.id);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -333,6 +374,15 @@ app.patch('/api/suppliers/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/suppliers/:id', async (req, res) => {
+  try {
+    const data = await deleteSupplier(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/supplier-transactions', async (req, res) => {
   try {
     const data = await getAllSupplierTransactions();
@@ -345,6 +395,24 @@ app.get('/api/supplier-transactions', async (req, res) => {
 app.post('/api/supplier-transactions', async (req, res) => {
   try {
     const data = await createSupplierTransaction(req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/supplier-transactions/:id', async (req, res) => {
+  try {
+    const data = await updateSupplierTransaction(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/supplier-transactions/:id', async (req, res) => {
+  try {
+    const data = await deleteSupplierTransaction(req.params.id);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -407,6 +475,15 @@ app.patch('/api/cash-movements/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/cash-movements/:id', async (req, res) => {
+  try {
+    const data = await deleteCashMovement(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 12. TREASURY & LEDGERS
 app.get('/api/treasury', async (req, res) => {
   try {
@@ -444,6 +521,24 @@ app.post('/api/bank-records', async (req, res) => {
   }
 });
 
+app.patch('/api/bank-records/:id', async (req, res) => {
+  try {
+    const data = await updateBankRecord(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/bank-records/:id', async (req, res) => {
+  try {
+    const data = await deleteBankRecord(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/cash-records', async (req, res) => {
   try {
     const data = await getAllCashRecords();
@@ -462,6 +557,24 @@ app.post('/api/cash-records', async (req, res) => {
   }
 });
 
+app.patch('/api/cash-records/:id', async (req, res) => {
+  try {
+    const data = await updateCashRecord(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/cash-records/:id', async (req, res) => {
+  try {
+    const data = await deleteCashRecord(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/airtel-records', async (req, res) => {
   try {
     const data = await getAllAirtelRecords();
@@ -474,6 +587,24 @@ app.get('/api/airtel-records', async (req, res) => {
 app.post('/api/airtel-records', async (req, res) => {
   try {
     const data = await createAirtelRecord(req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/airtel-records/:id', async (req, res) => {
+  try {
+    const data = await updateAirtelRecord(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/airtel-records/:id', async (req, res) => {
+  try {
+    const data = await deleteAirtelRecord(req.params.id);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -526,8 +657,23 @@ app.patch('/api/stock-transfers/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/stock-transfers/:id', async (req, res) => {
+  try {
+    const data = await deleteStockTransfer(req.params.id);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // START SERVER & ATTACH VITE MIDDLEWARE
 async function start() {
+  try {
+    await seedDatabaseIfEmpty();
+  } catch (seedErr) {
+    console.error('Error during initial database seeding:', seedErr);
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },

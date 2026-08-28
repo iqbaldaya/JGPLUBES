@@ -223,6 +223,16 @@ export async function updateDebtor(debtorId: string, updates: Partial<typeof deb
   }
 }
 
+export async function deleteDebtor(debtorId: string) {
+  try {
+    await db.delete(debtors).where(eq(debtors.id, debtorId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteDebtor:', error);
+    throw new Error('Failed to delete debtor', { cause: error });
+  }
+}
+
 export async function getAllDebtorTransactions() {
   try {
     return await db.select().from(debtorTransactions).orderBy(desc(debtorTransactions.date), desc(debtorTransactions.createdAt));
@@ -239,6 +249,26 @@ export async function createDebtorTransaction(txData: typeof debtorTransactions.
   } catch (error) {
     console.error('Database query failed for createDebtorTransaction:', error);
     throw new Error('Failed to create debtor transaction', { cause: error });
+  }
+}
+
+export async function updateDebtorTransaction(txId: string, updates: Partial<typeof debtorTransactions.$inferInsert>) {
+  try {
+    const res = await db.update(debtorTransactions).set(updates).where(eq(debtorTransactions.id, txId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateDebtorTransaction:', error);
+    throw new Error('Failed to update debtor transaction', { cause: error });
+  }
+}
+
+export async function deleteDebtorTransaction(txId: string) {
+  try {
+    await db.delete(debtorTransactions).where(eq(debtorTransactions.id, txId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteDebtorTransaction:', error);
+    throw new Error('Failed to delete debtor transaction', { cause: error });
   }
 }
 
@@ -272,6 +302,16 @@ export async function updateSupplier(supplierId: string, updates: Partial<typeof
   }
 }
 
+export async function deleteSupplier(supplierId: string) {
+  try {
+    await db.delete(suppliers).where(eq(suppliers.id, supplierId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteSupplier:', error);
+    throw new Error('Failed to delete supplier', { cause: error });
+  }
+}
+
 export async function getAllSupplierTransactions() {
   try {
     return await db.select().from(supplierTransactions).orderBy(desc(supplierTransactions.date), desc(supplierTransactions.createdAt));
@@ -288,6 +328,26 @@ export async function createSupplierTransaction(txData: typeof supplierTransacti
   } catch (error) {
     console.error('Database query failed for createSupplierTransaction:', error);
     throw new Error('Failed to create supplier transaction', { cause: error });
+  }
+}
+
+export async function updateSupplierTransaction(txId: string, updates: Partial<typeof supplierTransactions.$inferInsert>) {
+  try {
+    const res = await db.update(supplierTransactions).set(updates).where(eq(supplierTransactions.id, txId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateSupplierTransaction:', error);
+    throw new Error('Failed to update supplier transaction', { cause: error });
+  }
+}
+
+export async function deleteSupplierTransaction(txId: string) {
+  try {
+    await db.delete(supplierTransactions).where(eq(supplierTransactions.id, txId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteSupplierTransaction:', error);
+    throw new Error('Failed to delete supplier transaction', { cause: error });
   }
 }
 
@@ -348,6 +408,16 @@ export async function updateCashMovement(movementId: string, updates: Partial<ty
   } catch (error) {
     console.error('Database query failed for updateCashMovement:', error);
     throw new Error('Failed to update cash movement', { cause: error });
+  }
+}
+
+export async function deleteCashMovement(movementId: string) {
+  try {
+    await db.delete(cashMovements).where(eq(cashMovements.id, movementId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteCashMovement:', error);
+    throw new Error('Failed to delete cash movement', { cause: error });
   }
 }
 
@@ -412,6 +482,26 @@ export async function createBankRecord(record: typeof bankRecords.$inferInsert) 
   }
 }
 
+export async function updateBankRecord(recordId: string, updates: Partial<typeof bankRecords.$inferInsert>) {
+  try {
+    const res = await db.update(bankRecords).set(updates).where(eq(bankRecords.id, recordId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateBankRecord:', error);
+    throw new Error('Failed to update bank record', { cause: error });
+  }
+}
+
+export async function deleteBankRecord(recordId: string) {
+  try {
+    await db.delete(bankRecords).where(eq(bankRecords.id, recordId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteBankRecord:', error);
+    throw new Error('Failed to delete bank record', { cause: error });
+  }
+}
+
 export async function getAllCashRecords() {
   try {
     return await db.select().from(cashRecords).orderBy(desc(cashRecords.date), desc(cashRecords.createdAt));
@@ -431,6 +521,26 @@ export async function createCashRecord(record: typeof cashRecords.$inferInsert) 
   }
 }
 
+export async function updateCashRecord(recordId: string, updates: Partial<typeof cashRecords.$inferInsert>) {
+  try {
+    const res = await db.update(cashRecords).set(updates).where(eq(cashRecords.id, recordId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateCashRecord:', error);
+    throw new Error('Failed to update cash record', { cause: error });
+  }
+}
+
+export async function deleteCashRecord(recordId: string) {
+  try {
+    await db.delete(cashRecords).where(eq(cashRecords.id, recordId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteCashRecord:', error);
+    throw new Error('Failed to delete cash record', { cause: error });
+  }
+}
+
 export async function getAllAirtelRecords() {
   try {
     return await db.select().from(airtelRecords).orderBy(desc(airtelRecords.date), desc(airtelRecords.createdAt));
@@ -447,6 +557,26 @@ export async function createAirtelRecord(record: typeof airtelRecords.$inferInse
   } catch (error) {
     console.error('Database query failed for createAirtelRecord:', error);
     throw new Error('Failed to create airtel record', { cause: error });
+  }
+}
+
+export async function updateAirtelRecord(recordId: string, updates: Partial<typeof airtelRecords.$inferInsert>) {
+  try {
+    const res = await db.update(airtelRecords).set(updates).where(eq(airtelRecords.id, recordId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateAirtelRecord:', error);
+    throw new Error('Failed to update airtel record', { cause: error });
+  }
+}
+
+export async function deleteAirtelRecord(recordId: string) {
+  try {
+    await db.delete(airtelRecords).where(eq(airtelRecords.id, recordId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteAirtelRecord:', error);
+    throw new Error('Failed to delete airtel record', { cause: error });
   }
 }
 
@@ -496,5 +626,15 @@ export async function updateStockTransfer(transferId: string, updates: Partial<t
   } catch (error) {
     console.error('Database query failed for updateStockTransfer:', error);
     throw new Error('Failed to update stock transfer', { cause: error });
+  }
+}
+
+export async function deleteStockTransfer(transferId: string) {
+  try {
+    await db.delete(stockTransfers).where(eq(stockTransfers.id, transferId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteStockTransfer:', error);
+    throw new Error('Failed to delete stock transfer', { cause: error });
   }
 }

@@ -42,6 +42,7 @@ import {
   INITIAL_CASH_RECORDS,
   INITIAL_STOCK_TRANSFERS,
 } from '../data/initialData';
+import { api } from '../lib/api';
 
 interface AppContextType {
   // Auth & Portal State
@@ -419,6 +420,71 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return debtors.reduce((sum, d) => sum + (Number(d.outstandingBalance) || 0), 0);
   }, [debtors]);
 
+  // Load and continuously sync state from Cloud SQL PostgreSQL Backend
+  const syncWithDatabase = async () => {
+    try {
+      const data = await api.bootstrap();
+      if (data) {
+        if (Array.isArray(data.branches) && data.branches.length > 0) {
+          setBranches(data.branches);
+        }
+        if (Array.isArray(data.products) && data.products.length > 0) {
+          setProducts(data.products);
+        }
+        if (Array.isArray(data.branchStocks) && data.branchStocks.length > 0) {
+          setBranchStocks(data.branchStocks);
+        }
+        if (Array.isArray(data.dailySales)) {
+          setDailySales(data.dailySales);
+        }
+        if (Array.isArray(data.debtors)) {
+          setDebtors(data.debtors);
+        }
+        if (Array.isArray(data.debtorTransactions)) {
+          setDebtorTransactions(data.debtorTransactions);
+        }
+        if (Array.isArray(data.suppliers)) {
+          setSuppliers(data.suppliers);
+        }
+        if (Array.isArray(data.supplierTransactions)) {
+          setSupplierTransactions(data.supplierTransactions);
+        }
+        if (Array.isArray(data.stockReconciliations)) {
+          setStockReconciliations(data.stockReconciliations);
+        }
+        if (Array.isArray(data.cashMovements)) {
+          setCashMovements(data.cashMovements);
+        }
+        if (data.ownerTreasury) {
+          setOwnerTreasury(data.ownerTreasury);
+        }
+        if (Array.isArray(data.bankRecords)) {
+          setBankRecords(data.bankRecords);
+        }
+        if (Array.isArray(data.cashRecords)) {
+          setCashRecords(data.cashRecords);
+        }
+        if (Array.isArray(data.airtelRecords)) {
+          setAirtelRecords(data.airtelRecords);
+        }
+        if (Array.isArray(data.airtelMoneyRecords)) {
+          setAirtelMoneyRecords(data.airtelMoneyRecords);
+        }
+        if (Array.isArray(data.stockTransfers)) {
+          setStockTransfers(data.stockTransfers);
+        }
+      }
+    } catch (err) {
+      console.warn('Syncing with Cloud SQL PostgreSQL...', err);
+    }
+  };
+
+  useEffect(() => {
+    syncWithDatabase();
+    const interval = setInterval(syncWithDatabase, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Save to LocalStorage whenever state updates
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_role`, role);
@@ -569,6 +635,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setBranches((prev) => [...prev, newBranch]);
 
+    // Persist to Cloud SQL PostgreSQL
+    api.createBranch(newBranch).catch(console.error);
+
     // Initialize stock for all active products for the new branch with 0 quantity
     const newStockEntries: BranchStock[] = products.map((prod) => ({
       branchId: newId,
@@ -585,6 +654,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setBranches((prev) =>
       prev.map((b) => (b.id === branchId ? { ...b, ...updates } : b))
     );
+    api.updateBranch(branchId, updates).catch(console.error);
   };
 
   // Product CRUD
@@ -599,16 +669,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setProducts((prev) => [...prev, newProduct]);
 
+    // Persist to Cloud SQL PostgreSQL
+    api.createProduct(newProduct).catch(console.error);
+
     // Add stock records for all branches
-    const newStocks: BranchStock[] = branches.map((b) => ({
-      branchId: b.id,
-      productId: newId,
-      quantity: Math.max(
+    const newStocks: BranchStock[] = branches.map((b) => {
+      const qty = Math.max(
         0,
         initialStocks && typeof initialStocks[b.id] === 'number' ? Number(initialStocks[b.id]) : 0
-      ),
-      lastUpdated: new Date().toISOString().split('T')[0],
-    }));
+      );
+      if (qty > 0) {
+        api.upsertStock(b.id, newId, qty).catch(console.error);
+      }
+      return {
+        branchId: b.id,
+        productId: newId,
+        quantity: qty,
+        lastUpdated: new Date().toISOString().split('T')[0],
+      };
+    });
     setBranchStocks((prev) => [...prev, ...newStocks]);
 
     return newProduct;
@@ -618,6 +697,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, ...updates } : p))
     );
+    api.updateProduct(productId, updates).catch(console.error);
   };
 
   const deleteProduct = (productId: string): { success: boolean; message?: string } => {
@@ -641,17 +721,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setProducts((prev) => prev.filter((p) => p.id !== productId));
     setBranchStocks((prev) => prev.filter((s) => s.productId !== productId));
+    api.deleteProduct(productId).catch(console.error);
     return { success: true, message: 'Product successfully deleted from catalog.' };
   };
 
   // Stock Management
   const updateStockQuantity = (branchId: string, productId: string, newQuantity: number) => {
+    const qty = Math.max(0, newQuantity);
+    api.upsertStock(branchId, productId, qty).catch(console.error);
     setBranchStocks((prev) => {
       const exists = prev.find((s) => s.branchId === branchId && s.productId === productId);
       if (exists) {
         return prev.map((s) =>
           s.branchId === branchId && s.productId === productId
-            ? { ...s, quantity: Math.max(0, newQuantity), lastUpdated: new Date().toISOString().split('T')[0] }
+            ? { ...s, quantity: qty, lastUpdated: new Date().toISOString().split('T')[0] }
             : s
         );
       } else {
@@ -660,7 +743,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           {
             branchId,
             productId,
-            quantity: Math.max(0, newQuantity),
+            quantity: qty,
             lastUpdated: new Date().toISOString().split('T')[0],
           },
         ];
@@ -886,6 +969,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updated[existingIndex] = resultRecord;
         return updated;
       });
+
+      api.updateDailySale(existing.id, resultRecord).catch(console.error);
     } else {
       const newId = recordData.id || `sale-${Date.now()}`;
       resultRecord = {
@@ -897,6 +982,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
 
       setDailySales((prev) => [resultRecord, ...prev]);
+      api.createDailySale(resultRecord).catch(console.error);
     }
 
     return resultRecord;
@@ -922,6 +1008,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           : s
       )
     );
+
+    api.updateDailySale(saleId, {
+      postingStatus: 'UNPOSTED',
+      postedByBranchAt: now,
+      rejectionReason: undefined,
+    }).catch(console.error);
 
     return {
       success: true,
@@ -988,6 +1080,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
 
+    // Persist to Cloud SQL
+    api.updateDailySale(targetRecord.id, targetRecord).catch(console.error);
+
     // Apply ledger and inventory postings immediately
     postDailySaleInternal(targetRecord);
 
@@ -1017,6 +1112,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
 
+    api.updateDailySale(saleId, {
+      postingStatus: 'REJECTED',
+      rejectionReason: reason,
+    }).catch(console.error);
+
     return {
       success: true,
       message: `Daily sales returned to branch with note: "${reason}". Branch can now edit and re-post.`,
@@ -1037,6 +1137,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDailySales((prev) =>
       prev.map((sale) => (sale.id === id ? { ...sale, ...updates } : sale))
     );
+    api.updateDailySale(id, updates).catch(console.error);
   };
 
   const deleteDailySale = (
@@ -1098,6 +1199,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // 3. Remove the daily sale record
     setDailySales((prev) => prev.filter((s) => s.id !== saleId));
+    api.deleteDailySale(saleId).catch(console.error);
+
     return {
       success: true,
       message: `Daily sales record for ${sale.branchName} on ${sale.date} was deleted successfully.`,
@@ -1378,6 +1481,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString().split('T')[0],
     };
     setSuppliers((prev) => [...prev, newSupplier]);
+    api.createSupplier(newSupplier).catch(console.error);
     return newSupplier;
   };
 
@@ -1385,6 +1489,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSuppliers((prev) =>
       prev.map((s) => (s.id === supplierId ? { ...s, ...updates } : s))
     );
+    api.updateSupplier(supplierId, updates).catch(console.error);
   };
 
   const deleteSupplier = (supplierId: string): { success: boolean; message: string } => {
@@ -1401,6 +1506,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
+    api.deleteSupplier(supplierId).catch(console.error);
     return { success: true, message: 'Supplier account deleted successfully.' };
   };
 
@@ -1664,6 +1770,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setSupplierTransactions((prev) => [newTx, ...prev]);
+    api.createSupplierTransaction(newTx).catch(console.error);
     return newTx;
   };
 
@@ -1784,6 +1891,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSupplierTransactions((prev) =>
       prev.map((tx) => (tx.id === txId ? { ...tx, ...finalUpdates } : tx))
     );
+    api.updateSupplierTransaction(txId, finalUpdates).catch(console.error);
 
     return {
       success: true,
@@ -1822,6 +1930,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setSupplierTransactions((prev) => prev.filter((tx) => tx.id !== txId));
+    api.deleteSupplierTransaction(txId).catch(console.error);
     return { success: true, message: 'Supplier transaction deleted successfully.' };
   };
 
@@ -1983,6 +2092,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       lastUpdated: now,
     }));
 
+    api.createBankRecord(newRecord).catch(console.error);
+    api.updateTreasury({ cashInBank: newBalance, lastUpdated: now }).catch(console.error);
+
     return newRecord;
   };
 
@@ -1998,6 +2110,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashInBank: finalBalance,
       lastUpdated: now,
     }));
+
+    api.updateBankRecord(id, updates).catch(console.error);
+    api.updateTreasury({ cashInBank: finalBalance, lastUpdated: now }).catch(console.error);
   };
 
   const deleteBankRecord = (id: string) => {
@@ -2012,6 +2127,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashInBank: finalBalance,
       lastUpdated: now,
     }));
+
+    api.deleteBankRecord(id).catch(console.error);
+    api.updateTreasury({ cashInBank: finalBalance, lastUpdated: now }).catch(console.error);
+
     return { success: true, message: 'Bank transaction deleted.' };
   };
 
@@ -2028,6 +2147,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashInBank: finalBalance,
       lastUpdated: now,
     }));
+
+    ids.forEach((id) => api.deleteBankRecord(id).catch(console.error));
+    api.updateTreasury({ cashInBank: finalBalance, lastUpdated: now }).catch(console.error);
+
     return { success: true, message: `Successfully deleted ${ids.length} bank transactions.` };
   };
 
@@ -2064,6 +2187,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       lastUpdated: now,
     }));
 
+    api.createCashRecord(newRecord).catch(console.error);
+    api.updateTreasury({ cashOnHand: newBalance, lastUpdated: now }).catch(console.error);
+
     return newRecord;
   };
 
@@ -2079,6 +2205,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashOnHand: finalBalance,
       lastUpdated: now,
     }));
+
+    api.updateCashRecord(id, updates).catch(console.error);
+    api.updateTreasury({ cashOnHand: finalBalance, lastUpdated: now }).catch(console.error);
   };
 
   const deleteCashRecord = (id: string) => {
@@ -2093,6 +2222,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashOnHand: finalBalance,
       lastUpdated: now,
     }));
+
+    api.deleteCashRecord(id).catch(console.error);
+    api.updateTreasury({ cashOnHand: finalBalance, lastUpdated: now }).catch(console.error);
+
     return { success: true, message: 'Cash transaction deleted.' };
   };
 
@@ -2109,6 +2242,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashOnHand: finalBalance,
       lastUpdated: now,
     }));
+
+    ids.forEach((id) => api.deleteCashRecord(id).catch(console.error));
+    api.updateTreasury({ cashOnHand: finalBalance, lastUpdated: now }).catch(console.error);
+
     return { success: true, message: `Successfully deleted ${ids.length} cash transactions.` };
   };
 
@@ -2145,6 +2282,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       lastUpdated: now,
     }));
 
+    api.createAirtelRecord(newRecord).catch(console.error);
+    api.updateTreasury({ cashOnAirtelMoney: newBalance, lastUpdated: now }).catch(console.error);
+
     return newRecord;
   };
 
@@ -2160,6 +2300,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashOnAirtelMoney: finalBalance,
       lastUpdated: now,
     }));
+
+    api.updateAirtelRecord(id, updates).catch(console.error);
+    api.updateTreasury({ cashOnAirtelMoney: finalBalance, lastUpdated: now }).catch(console.error);
   };
 
   const deleteAirtelRecord = (id: string) => {
@@ -2174,6 +2317,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       cashOnAirtelMoney: finalBalance,
       lastUpdated: now,
     }));
+
+    api.deleteAirtelRecord(id).catch(console.error);
+    api.updateTreasury({ cashOnAirtelMoney: finalBalance, lastUpdated: now }).catch(console.error);
+
     return { success: true, message: 'Airtel Money transaction deleted.' };
   };
 
@@ -2399,11 +2546,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     setDebtors((prev) => [newDebtor, ...prev]);
+    api.createDebtor(newDebtor).catch(console.error);
     return newDebtor;
   };
 
   const updateDebtor = (id: string, updates: Partial<Debtor>) => {
     setDebtors((prev) => prev.map((d) => (d.id === id ? { ...d, ...updates } : d)));
+    api.updateDebtor(id, updates).catch(console.error);
   };
 
   const deleteDebtor = (id: string): { success: boolean; message: string } => {
@@ -2419,6 +2568,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setDebtors((prev) => prev.filter((d) => d.id !== id));
+    api.deleteDebtor(id).catch(console.error);
     return { success: true, message: `Debtor "${debtor.name}" deleted successfully.` };
   };
 
@@ -2458,7 +2608,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Update debtor balances
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
 
-    return nextTxs.find((t) => t.id === newId) || newTx;
+    const finalTx = nextTxs.find((t) => t.id === newId) || newTx;
+    api.createDebtorTransaction(finalTx).catch(console.error);
+
+    return finalTx;
   };
 
   const recordDebtorPayment = (
@@ -2535,6 +2688,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const createdTx = nextTxs.find((t) => t.id === newId) || newTx;
+    api.createDebtorTransaction(createdTx).catch(console.error);
 
     return {
       success: true,
@@ -2565,6 +2719,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const nextTxs = recalculateDebtorRunningBalances(rawUpdated);
     setDebtorTransactions(nextTxs);
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
+    api.updateDebtorTransaction(id, updates).catch(console.error);
 
     return { success: true, message: 'Debtor transaction entry updated successfully.' };
   };
@@ -2579,6 +2734,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const nextTxs = recalculateDebtorRunningBalances(filtered);
     setDebtorTransactions(nextTxs);
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
+    api.deleteDebtorTransaction(id).catch(console.error);
     return { success: true, message: 'Debtor transaction deleted and balance updated.' };
   };
 
@@ -2612,6 +2768,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       requestedAt: new Date().toISOString(),
     };
     setCashMovements((prev) => [newMovement, ...prev]);
+    api.createCashMovement(newMovement).catch(console.error);
     return newMovement;
   };
 
@@ -2639,6 +2796,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
 
+    api.updateCashMovement(movementId, {
+      status: 'APPROVED',
+      reviewedBy: 'Owner / HQ',
+      reviewedAt: now,
+      reviewNotes: reviewNotes || movement.reviewNotes || 'Approved by Owner',
+    }).catch(console.error);
+
     // Credit the Owner Treasury based on destination and record in corresponding ledger
     if (movement.destination === 'OWNER_CASH') {
       const lastBal = cashRecords.length > 0 ? cashRecords[cashRecords.length - 1].balance : ownerTreasury.cashOnHand;
@@ -2660,6 +2824,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cashOnHand: newBal,
         lastUpdated: now,
       }));
+      api.createCashRecord(newCashRec).catch(console.error);
+      api.updateTreasury({ cashOnHand: newBal, lastUpdated: now }).catch(console.error);
     } else if (movement.destination === 'BANK') {
       const lastBal = bankRecords.length > 0 ? bankRecords[bankRecords.length - 1].balance : ownerTreasury.cashInBank;
       const newBal = Number((lastBal + movement.amount).toFixed(2));
@@ -2680,12 +2846,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cashInBank: newBal,
         lastUpdated: now,
       }));
+      api.createBankRecord(newBankRec).catch(console.error);
+      api.updateTreasury({ cashInBank: newBal, lastUpdated: now }).catch(console.error);
     } else if (movement.destination === 'AIRTEL_MONEY') {
+      const newAirtelBal = Number((ownerTreasury.cashOnAirtelMoney + movement.amount).toFixed(2));
       setOwnerTreasury((prev) => ({
         ...prev,
-        cashOnAirtelMoney: Number((prev.cashOnAirtelMoney + movement.amount).toFixed(2)),
+        cashOnAirtelMoney: newAirtelBal,
         lastUpdated: now,
       }));
+      api.updateTreasury({ cashOnAirtelMoney: newAirtelBal, lastUpdated: now }).catch(console.error);
     }
 
     // If destination was Airtel Money, also record in Airtel Money Ledger
@@ -2705,6 +2875,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createdAt: now,
       };
       setAirtelMoneyRecords((prev) => [newAirtelRecord, ...prev]);
+      api.createAirtelMoney(newAirtelRecord).catch(console.error);
     }
 
     return {
@@ -2734,6 +2905,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       )
     );
 
+    api.updateCashMovement(movementId, {
+      status: 'REJECTED',
+      reviewedBy: 'Owner / HQ',
+      reviewedAt: now,
+      reviewNotes: reviewNotes || 'Rejected by Owner',
+    }).catch(console.error);
+
     return { success: true, message: 'Transaction rejected.' };
   };
 
@@ -2757,11 +2935,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       })
     );
 
+    api.updateCashMovement(id, updates).catch(console.error);
     return { success: true, message: 'Cash movement entry updated successfully.' };
   };
 
   const deleteCashMovement = (movementId: string) => {
     setCashMovements((prev) => prev.filter((m) => m.id !== movementId));
+    api.deleteCashMovement(movementId).catch(console.error);
     return { success: true, message: 'Transaction record deleted.' };
   };
 
@@ -3019,6 +3199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     setStockTransfers((prev) => [newTransfer, ...prev]);
+    api.createStockTransfer(newTransfer).catch(console.error);
 
     return {
       success: true,
@@ -3098,21 +3279,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     // Update transfer record
+    const updatedRecordUpdates = {
+      status: 'RECEIVED' as StockTransferStatus,
+      receivedBy: receiptData.receivedBy,
+      receivedAt: now,
+      receivingNotes: receiptData.receivingNotes,
+      items: updatedItems,
+    };
+
     setStockTransfers((prev) =>
       prev.map((t) => {
         if (t.id === transferId) {
           return {
             ...t,
-            status: 'RECEIVED' as StockTransferStatus,
-            receivedBy: receiptData.receivedBy,
-            receivedAt: now,
-            receivingNotes: receiptData.receivingNotes,
-            items: updatedItems,
+            ...updatedRecordUpdates,
           };
         }
         return t;
       })
     );
+
+    api.updateStockTransfer(transferId, updatedRecordUpdates).catch(console.error);
 
     return {
       success: true,
@@ -3160,18 +3347,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return nextStocks;
     });
 
+    const cancelUpdates = {
+      status: 'CANCELLED' as StockTransferStatus,
+      notes: reason ? `${transfer.notes ? transfer.notes + ' | ' : ''}Cancelled: ${reason}` : transfer.notes,
+    };
+
     setStockTransfers((prev) =>
       prev.map((t) => {
         if (t.id === transferId) {
           return {
             ...t,
-            status: 'CANCELLED' as StockTransferStatus,
-            notes: reason ? `${t.notes ? t.notes + ' | ' : ''}Cancelled: ${reason}` : t.notes,
+            ...cancelUpdates,
           };
         }
         return t;
       })
     );
+
+    api.updateStockTransfer(transferId, cancelUpdates).catch(console.error);
 
     return {
       success: true,
@@ -3219,6 +3412,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setStockTransfers((prev) => prev.filter((t) => t.id !== transferId));
+    api.deleteStockTransfer(transferId).catch(console.error);
     return { success: true, message: `Transfer ${transfer.transferNumber} removed from system records.` };
   };
 

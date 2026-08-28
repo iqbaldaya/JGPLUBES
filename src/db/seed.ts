@@ -85,19 +85,15 @@ export async function seedDatabaseIfEmpty() {
     );
 
     // 3. Branch Stocks
-    const stockEntries: any[] = [];
-    Object.entries(INITIAL_BRANCH_STOCK).forEach(([branchId, stockMap]) => {
-      Object.entries(stockMap).forEach(([productId, quantity]) => {
-        stockEntries.push({
-          branchId,
-          productId,
-          quantity,
-          lastUpdated: new Date().toISOString(),
-        });
-      });
-    });
-    if (stockEntries.length > 0) {
-      await db.insert(branchStocks).values(stockEntries);
+    if (INITIAL_BRANCH_STOCK.length > 0) {
+      await db.insert(branchStocks).values(
+        INITIAL_BRANCH_STOCK.map((bs) => ({
+          branchId: bs.branchId,
+          productId: bs.productId,
+          quantity: bs.quantity,
+          lastUpdated: bs.lastUpdated || new Date().toISOString(),
+        }))
+      );
     }
 
     // 4. Debtors
