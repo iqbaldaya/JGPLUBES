@@ -481,8 +481,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     syncWithDatabase();
-    const interval = setInterval(syncWithDatabase, 6000);
-    return () => clearInterval(interval);
+    const interval = setInterval(syncWithDatabase, 4000);
+    const handleFocus = () => syncWithDatabase();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncWithDatabase();
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   // Save to LocalStorage whenever state updates

@@ -11,14 +11,27 @@ declare global {
 // Function to create or retrieve the connection pool using the object method
 export const createPool = () => {
   if (!global._postgresPool) {
-    global._postgresPool = new Pool({
-      host: process.env.SQL_HOST,
-      user: process.env.SQL_USER,
-      password: process.env.SQL_PASSWORD,
-      database: process.env.SQL_DB_NAME,
-      max: 10,
-      connectionTimeoutMillis: 15000,
-    });
+    const connectionString = process.env.DATABASE_URL;
+    const poolConfig = connectionString
+      ? {
+          connectionString,
+          ssl:
+            connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+              ? false
+              : { rejectUnauthorized: false },
+          max: 10,
+          connectionTimeoutMillis: 15000,
+        }
+      : {
+          host: process.env.SQL_HOST || '127.0.0.1',
+          user: process.env.SQL_USER || 'postgres',
+          password: process.env.SQL_PASSWORD || 'postgres',
+          database: process.env.SQL_DB_NAME || 'postgres',
+          max: 10,
+          connectionTimeoutMillis: 15000,
+        };
+
+    global._postgresPool = new Pool(poolConfig);
 
     // Prevent unhandled pool-level errors from crashing the application
     global._postgresPool.on('error', (err) => {
