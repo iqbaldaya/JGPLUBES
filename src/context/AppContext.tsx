@@ -20,6 +20,9 @@ import {
   CashMovementStatus,
   BankRecord,
   CashRecord,
+  StockTransfer,
+  StockTransferItem,
+  StockTransferStatus,
 } from '../types';
 import {
   INITIAL_BRANCHES,
@@ -37,6 +40,7 @@ import {
   INITIAL_OWNER_TREASURY,
   INITIAL_BANK_RECORDS,
   INITIAL_CASH_RECORDS,
+  INITIAL_STOCK_TRANSFERS,
 } from '../data/initialData';
 
 interface AppContextType {
@@ -63,6 +67,7 @@ interface AppContextType {
   ownerTreasury: OwnerTreasury;
   bankRecords: BankRecord[];
   cashRecords: CashRecord[];
+  stockTransfers: StockTransfer[];
 
   // Alerts
   lowStockAlerts: LowStockAlert[];
@@ -224,6 +229,86 @@ interface AppContextType {
   verifyAirtelMoneyRecord: (recordId: string) => void;
   verifyAirtelRecord: (recordId: string) => void;
 
+  // Inter-Branch Stock Transfers (Site-to-Site Logistics)
+  createStockTransfer: (data: {
+    sourceBranchId: string;
+    destinationBranchId: string;
+    transferDate: string;
+    dispatchedBy: string;
+    driverOrCourierName?: string;
+    vehicleRegNo?: string;
+    waybillOrRefNo?: string;
+    notes?: string;
+    items: {
+      productId: string;
+      quantity: number;
+    }[];
+  }) => { success: boolean; message: string; transfer?: StockTransfer };
+  receiveStockTransfer: (
+    transferId: string,
+    receiptData: {
+      receivedBy: string;
+      receivingNotes?: string;
+      itemReceipts?: {
+        productId: string;
+        receivedQty: number;
+        damagedQty?: number;
+        missingQty?: number;
+      }[];
+    }
+  ) => { success: boolean; message: string };
+  cancelStockTransfer: (transferId: string, reason?: string) => { success: boolean; message: string };
+  deleteStockTransfer: (transferId: string, reverseStocks?: boolean) => { success: boolean; message: string };
+
+  // Excel / CSV Bulk Data Import Engine
+  bulkImportProducts: (
+    productsData: {
+      code: string;
+      name: string;
+      category: 'LUBRICANTS' | 'LPG';
+      subCategory?: string;
+      unit?: string;
+      volumeLitersOrKg?: number;
+      costPrice: number;
+      sellingPrice: number;
+      reorderThreshold?: number;
+      description?: string;
+    }[],
+    updateExisting?: boolean
+  ) => { success: boolean; createdCount: number; updatedCount: number; message: string };
+
+  bulkImportBranchStocks: (
+    stocksData: { branchId: string; productId: string; quantity: number }[],
+    mode?: 'SET' | 'ADD'
+  ) => { success: boolean; updatedCount: number; message: string };
+
+  bulkImportDebtors: (
+    debtorsData: {
+      code?: string;
+      name: string;
+      contactPerson?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      creditLimit?: number;
+      notes?: string;
+    }[]
+  ) => { success: boolean; createdCount: number; updatedCount: number; message: string };
+
+  bulkImportSuppliers: (
+    suppliersData: {
+      code?: string;
+      name: string;
+      contactPerson?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      category?: 'LUBRICANTS' | 'LPG' | 'BOTH' | 'EQUIPMENT';
+      paymentTermsDays?: number;
+      taxNumber?: string;
+    }[]
+  ) => { success: boolean; createdCount: number; updatedCount: number; message: string };
+
   // Utilities
   resetToDemoData: () => void;
   formatSystemDataToZero: () => {
@@ -324,6 +409,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : INITIAL_OWNER_TREASURY;
   });
 
+  const [stockTransfers, setStockTransfers] = useState<StockTransfer[]>(() => {
+    const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_stock_transfers`);
+    return saved ? JSON.parse(saved) : INITIAL_STOCK_TRANSFERS;
+  });
+
   // Total Debtors Outstanding Balance across business
   const totalDebtorsBalance = useMemo(() => {
     return debtors.reduce((sum, d) => sum + (Number(d.outstandingBalance) || 0), 0);
@@ -396,6 +486,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_owner_treasury`, JSON.stringify(ownerTreasury));
   }, [ownerTreasury]);
+
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_transfers`, JSON.stringify(stockTransfers));
+  }, [stockTransfers]);
 
   // Set Role and Branch
   const setRole = (newRole: UserRole, branchId?: string | null) => {
@@ -2796,6 +2890,612 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  // =========================================================================
+  // INTER-BRANCH STOCK TRANSFERS (SITE-TO-SITE LOGISTICS)
+  // =========================================================================
+
+  const createStockTransfer = (data: {
+    sourceBranchId: string;
+    destinationBranchId: string;
+    transferDate: string;
+    dispatchedBy: string;
+    driverOrCourierName?: string;
+    vehicleRegNo?: string;
+    waybillOrRefNo?: string;
+    notes?: string;
+    items: {
+      productId: string;
+      quantity: number;
+    }[];
+  }) => {
+    if (data.sourceBranchId === data.destinationBranchId) {
+      return { success: false, message: 'Source branch and destination branch must be different.' };
+    }
+
+    const sourceBranch = branches.find((b) => b.id === data.sourceBranchId);
+    const destBranch = branches.find((b) => b.id === data.destinationBranchId);
+
+    if (!sourceBranch || !destBranch) {
+      return { success: false, message: 'Invalid source or destination branch specified.' };
+    }
+
+    if (!data.items || data.items.length === 0) {
+      return { success: false, message: 'Please select at least one product item to dispatch.' };
+    }
+
+    // Verify stock availability at source branch
+    const transferItems: StockTransferItem[] = [];
+    let totalQuantity = 0;
+    let totalVolume = 0;
+    let totalValuation = 0;
+
+    for (const item of data.items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (!product) {
+        return { success: false, message: `Product item not found.` };
+      }
+
+      const sourceStock = branchStocks.find(
+        (s) => s.branchId === data.sourceBranchId && s.productId === item.productId
+      );
+      const availableQty = sourceStock ? sourceStock.quantity : 0;
+
+      if (item.quantity <= 0) {
+        return { success: false, message: `Transfer quantity for ${product.name} must be greater than 0.` };
+      }
+
+      if (item.quantity > availableQty) {
+        return {
+          success: false,
+          message: `Insufficient stock for "${product.name}" at ${sourceBranch.name}. Available on site: ${availableQty} units, Requested dispatch: ${item.quantity} units.`,
+        };
+      }
+
+      const unitCost = product.costPrice || 0;
+      const lineCost = Number((item.quantity * unitCost).toFixed(2));
+      const lineVolume = Number((item.quantity * (product.volumeLitersOrKg || 1)).toFixed(2));
+
+      totalQuantity += item.quantity;
+      totalVolume += lineVolume;
+      totalValuation += lineCost;
+
+      transferItems.push({
+        productId: product.id,
+        productCode: product.code,
+        productName: product.name,
+        category: product.category,
+        unit: product.unit,
+        volumePerUnit: product.volumeLitersOrKg || 1,
+        quantity: item.quantity,
+        unitCost,
+        totalCost: lineCost,
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    // Deduct stock from source branch immediately upon dispatch
+    setBranchStocks((prev) =>
+      prev.map((s) => {
+        if (s.branchId === data.sourceBranchId) {
+          const dispatched = data.items.find((i) => i.productId === s.productId);
+          if (dispatched) {
+            return {
+              ...s,
+              quantity: Math.max(0, s.quantity - dispatched.quantity),
+              lastUpdated: now,
+            };
+          }
+        }
+        return s;
+      })
+    );
+
+    const trfCount = stockTransfers.length + 1;
+    const transferNumber = `TRF-${new Date().getFullYear()}-${String(trfCount).padStart(3, '0')}`;
+
+    const newTransfer: StockTransfer = {
+      id: `trf-${Date.now()}`,
+      transferNumber,
+      sourceBranchId: sourceBranch.id,
+      sourceBranchName: sourceBranch.name,
+      sourceBranchCode: sourceBranch.code,
+      destinationBranchId: destBranch.id,
+      destinationBranchName: destBranch.name,
+      destinationBranchCode: destBranch.code,
+      transferDate: data.transferDate || now.split('T')[0],
+      status: 'IN_TRANSIT',
+      items: transferItems,
+      totalQuantity,
+      totalVolumeLitersOrKg: totalVolume,
+      totalValuation,
+      dispatchedBy: data.dispatchedBy,
+      dispatchedAt: now,
+      driverOrCourierName: data.driverOrCourierName,
+      vehicleRegNo: data.vehicleRegNo,
+      waybillOrRefNo: data.waybillOrRefNo,
+      notes: data.notes,
+      createdAt: now,
+    };
+
+    setStockTransfers((prev) => [newTransfer, ...prev]);
+
+    return {
+      success: true,
+      message: `Stock transfer ${transferNumber} initiated. ${totalQuantity} units (K${totalValuation.toLocaleString()}) dispatched from ${sourceBranch.name} to ${destBranch.name}.`,
+      transfer: newTransfer,
+    };
+  };
+
+  const receiveStockTransfer = (
+    transferId: string,
+    receiptData: {
+      receivedBy: string;
+      receivingNotes?: string;
+      itemReceipts?: {
+        productId: string;
+        receivedQty: number;
+        damagedQty?: number;
+        missingQty?: number;
+      }[];
+    }
+  ) => {
+    const transfer = stockTransfers.find((t) => t.id === transferId);
+    if (!transfer) {
+      return { success: false, message: 'Stock transfer record not found.' };
+    }
+
+    if (transfer.status !== 'IN_TRANSIT') {
+      return {
+        success: false,
+        message: `Transfer cannot be received because it is currently marked as ${transfer.status}.`,
+      };
+    }
+
+    const now = new Date().toISOString();
+
+    // Map updated items with received, damaged, and missing quantities
+    const updatedItems = transfer.items.map((item) => {
+      const receipt = receiptData.itemReceipts?.find((r) => r.productId === item.productId);
+      const receivedQuantity = receipt !== undefined ? receipt.receivedQty : item.quantity;
+      const damagedQuantity = receipt?.damagedQty || 0;
+      const missingQuantity = receipt?.missingQty || 0;
+
+      return {
+        ...item,
+        receivedQuantity,
+        damagedQuantity,
+        missingQuantity,
+      };
+    });
+
+    // Add received stock to destination branch inventory
+    setBranchStocks((prev) => {
+      const nextStocks = [...prev];
+      updatedItems.forEach((item) => {
+        const qtyToAdd = item.receivedQuantity !== undefined ? item.receivedQuantity : item.quantity;
+        if (qtyToAdd > 0) {
+          const existingIdx = nextStocks.findIndex(
+            (s) => s.branchId === transfer.destinationBranchId && s.productId === item.productId
+          );
+          if (existingIdx >= 0) {
+            nextStocks[existingIdx] = {
+              ...nextStocks[existingIdx],
+              quantity: nextStocks[existingIdx].quantity + qtyToAdd,
+              lastUpdated: now,
+            };
+          } else {
+            nextStocks.push({
+              branchId: transfer.destinationBranchId,
+              productId: item.productId,
+              quantity: qtyToAdd,
+              lastUpdated: now,
+            });
+          }
+        }
+      });
+      return nextStocks;
+    });
+
+    // Update transfer record
+    setStockTransfers((prev) =>
+      prev.map((t) => {
+        if (t.id === transferId) {
+          return {
+            ...t,
+            status: 'RECEIVED' as StockTransferStatus,
+            receivedBy: receiptData.receivedBy,
+            receivedAt: now,
+            receivingNotes: receiptData.receivingNotes,
+            items: updatedItems,
+          };
+        }
+        return t;
+      })
+    );
+
+    return {
+      success: true,
+      message: `Transfer ${transfer.transferNumber} received successfully at ${transfer.destinationBranchName}. Physical stock has been added to the branch inventory!`,
+    };
+  };
+
+  const cancelStockTransfer = (transferId: string, reason?: string) => {
+    const transfer = stockTransfers.find((t) => t.id === transferId);
+    if (!transfer) {
+      return { success: false, message: 'Stock transfer not found.' };
+    }
+
+    if (transfer.status !== 'IN_TRANSIT') {
+      return {
+        success: false,
+        message: `Only IN_TRANSIT transfers can be cancelled. Current status is ${transfer.status}.`,
+      };
+    }
+
+    const now = new Date().toISOString();
+
+    // Refund dispatched stock back to source branch
+    setBranchStocks((prev) => {
+      const nextStocks = [...prev];
+      transfer.items.forEach((item) => {
+        const existingIdx = nextStocks.findIndex(
+          (s) => s.branchId === transfer.sourceBranchId && s.productId === item.productId
+        );
+        if (existingIdx >= 0) {
+          nextStocks[existingIdx] = {
+            ...nextStocks[existingIdx],
+            quantity: nextStocks[existingIdx].quantity + item.quantity,
+            lastUpdated: now,
+          };
+        } else {
+          nextStocks.push({
+            branchId: transfer.sourceBranchId,
+            productId: item.productId,
+            quantity: item.quantity,
+            lastUpdated: now,
+          });
+        }
+      });
+      return nextStocks;
+    });
+
+    setStockTransfers((prev) =>
+      prev.map((t) => {
+        if (t.id === transferId) {
+          return {
+            ...t,
+            status: 'CANCELLED' as StockTransferStatus,
+            notes: reason ? `${t.notes ? t.notes + ' | ' : ''}Cancelled: ${reason}` : t.notes,
+          };
+        }
+        return t;
+      })
+    );
+
+    return {
+      success: true,
+      message: `Transfer ${transfer.transferNumber} cancelled. Dispatched quantities returned to ${transfer.sourceBranchName} inventory.`,
+    };
+  };
+
+  const deleteStockTransfer = (transferId: string, reverseStocks?: boolean) => {
+    const transfer = stockTransfers.find((t) => t.id === transferId);
+    if (!transfer) {
+      return { success: false, message: 'Stock transfer not found.' };
+    }
+
+    if (reverseStocks) {
+      if (transfer.status === 'IN_TRANSIT') {
+        // Return stock to source
+        setBranchStocks((prev) => {
+          const next = [...prev];
+          transfer.items.forEach((item) => {
+            const idx = next.findIndex(
+              (s) => s.branchId === transfer.sourceBranchId && s.productId === item.productId
+            );
+            if (idx >= 0) {
+              next[idx] = { ...next[idx], quantity: next[idx].quantity + item.quantity };
+            }
+          });
+          return next;
+        });
+      } else if (transfer.status === 'RECEIVED') {
+        // Deduct from destination
+        setBranchStocks((prev) => {
+          const next = [...prev];
+          transfer.items.forEach((item) => {
+            const qty = item.receivedQuantity !== undefined ? item.receivedQuantity : item.quantity;
+            const idx = next.findIndex(
+              (s) => s.branchId === transfer.destinationBranchId && s.productId === item.productId
+            );
+            if (idx >= 0) {
+              next[idx] = { ...next[idx], quantity: Math.max(0, next[idx].quantity - qty) };
+            }
+          });
+          return next;
+        });
+      }
+    }
+
+    setStockTransfers((prev) => prev.filter((t) => t.id !== transferId));
+    return { success: true, message: `Transfer ${transfer.transferNumber} removed from system records.` };
+  };
+
+  // =========================================================================
+  // EXCEL / CSV DATA BULK IMPORT ENGINE
+  // =========================================================================
+
+  const bulkImportProducts = (
+    productsData: {
+      code: string;
+      name: string;
+      category: 'LUBRICANTS' | 'LPG';
+      subCategory?: string;
+      unit?: string;
+      volumeLitersOrKg?: number;
+      costPrice: number;
+      sellingPrice: number;
+      reorderThreshold?: number;
+      description?: string;
+    }[],
+    updateExisting: boolean = true
+  ) => {
+    let createdCount = 0;
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+
+    const existingMap = new Map<string, Product>(products.map((p) => [p.code.toUpperCase().trim(), p]));
+    const newProductsList = [...products];
+    const newStocksToAdd: BranchStock[] = [];
+
+    productsData.forEach((item) => {
+      const codeKey = item.code.toUpperCase().trim();
+      const existing = existingMap.get(codeKey);
+
+      if (existing) {
+        if (updateExisting) {
+          const idx = newProductsList.findIndex((p) => p.id === existing.id);
+          if (idx >= 0) {
+            newProductsList[idx] = {
+              ...newProductsList[idx],
+              name: item.name || newProductsList[idx].name,
+              category: item.category || newProductsList[idx].category,
+              subCategory: item.subCategory || newProductsList[idx].subCategory,
+              unit: item.unit || newProductsList[idx].unit,
+              volumeLitersOrKg: item.volumeLitersOrKg || newProductsList[idx].volumeLitersOrKg,
+              costPrice: item.costPrice >= 0 ? item.costPrice : newProductsList[idx].costPrice,
+              sellingPrice: item.sellingPrice >= 0 ? item.sellingPrice : newProductsList[idx].sellingPrice,
+              reorderThreshold: item.reorderThreshold ?? newProductsList[idx].reorderThreshold,
+              description: item.description ?? newProductsList[idx].description,
+            };
+            updatedCount++;
+          }
+        }
+      } else {
+        const newProdId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const newProd: Product = {
+          id: newProdId,
+          code: item.code.trim(),
+          name: item.name.trim(),
+          category: item.category,
+          subCategory: item.subCategory || (item.category === 'LPG' ? 'LPG Refill' : 'Engine Oil'),
+          unit: item.unit || (item.category === 'LPG' ? 'Cylinder' : '1L Bottle'),
+          volumeLitersOrKg: item.volumeLitersOrKg || 1,
+          costPrice: item.costPrice || 0,
+          sellingPrice: item.sellingPrice || 0,
+          reorderThreshold: item.reorderThreshold ?? 5,
+          description: item.description,
+          isActive: true,
+        };
+        newProductsList.push(newProd);
+        existingMap.set(codeKey, newProd);
+        createdCount++;
+
+        // Initialize zero stock for all branches
+        branches.forEach((b) => {
+          newStocksToAdd.push({
+            branchId: b.id,
+            productId: newProdId,
+            quantity: 0,
+            lastUpdated: now,
+          });
+        });
+      }
+    });
+
+    setProducts(newProductsList);
+    if (newStocksToAdd.length > 0) {
+      setBranchStocks((prev) => [...prev, ...newStocksToAdd]);
+    }
+
+    return {
+      success: true,
+      createdCount,
+      updatedCount,
+      message: `Product import successful! ${createdCount} new products added, ${updatedCount} existing products updated with latest pricing.`,
+    };
+  };
+
+  const bulkImportBranchStocks = (
+    stocksData: { branchId: string; productId: string; quantity: number }[],
+    mode: 'SET' | 'ADD' = 'SET'
+  ) => {
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+
+    setBranchStocks((prev) => {
+      const next = [...prev];
+      stocksData.forEach((item) => {
+        if (!item.branchId || !item.productId) return;
+        const idx = next.findIndex(
+          (s) => s.branchId === item.branchId && s.productId === item.productId
+        );
+        const qty = Number(item.quantity) || 0;
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            quantity: mode === 'ADD' ? next[idx].quantity + qty : Math.max(0, qty),
+            lastUpdated: now,
+          };
+          updatedCount++;
+        } else {
+          next.push({
+            branchId: item.branchId,
+            productId: item.productId,
+            quantity: Math.max(0, qty),
+            lastUpdated: now,
+          });
+          updatedCount++;
+        }
+      });
+      return next;
+    });
+
+    return {
+      success: true,
+      updatedCount,
+      message: `Successfully synchronized ${updatedCount} branch stock inventory records (${mode === 'ADD' ? 'incremental additions' : 'exact stock counts'}).`,
+    };
+  };
+
+  const bulkImportDebtors = (
+    debtorsData: {
+      code?: string;
+      name: string;
+      contactPerson?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      creditLimit?: number;
+      notes?: string;
+    }[]
+  ) => {
+    let createdCount = 0;
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+
+    setDebtors((prev) => {
+      const next = [...prev];
+      debtorsData.forEach((item) => {
+        if (!item.name || !item.name.trim()) return;
+        const idx = next.findIndex(
+          (d) =>
+            d.name.toLowerCase().trim() === item.name.toLowerCase().trim() ||
+            (item.code && d.code.toUpperCase().trim() === item.code.toUpperCase().trim())
+        );
+
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            contactPerson: item.contactPerson || next[idx].contactPerson,
+            phone: item.phone || next[idx].phone,
+            email: item.email || next[idx].email,
+            address: item.address || next[idx].address,
+            creditLimit: item.creditLimit !== undefined ? item.creditLimit : next[idx].creditLimit,
+            notes: item.notes || next[idx].notes,
+          };
+          updatedCount++;
+        } else {
+          const newDebtor: Debtor = {
+            id: `debtor-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            code: item.code || `DEB-${String(next.length + 1).padStart(3, '0')}`,
+            name: item.name.trim(),
+            contactPerson: item.contactPerson,
+            phone: item.phone || '+260 97 0000000',
+            email: item.email,
+            address: item.address,
+            creditLimit: item.creditLimit ?? 15000,
+            totalCreditSales: 0,
+            totalPaid: 0,
+            outstandingBalance: 0,
+            status: 'ACTIVE',
+            notes: item.notes,
+            createdAt: now,
+          };
+          next.push(newDebtor);
+          createdCount++;
+        }
+      });
+      return next;
+    });
+
+    return {
+      success: true,
+      createdCount,
+      updatedCount,
+      message: `Imported customer debtors list. ${createdCount} created, ${updatedCount} updated.`,
+    };
+  };
+
+  const bulkImportSuppliers = (
+    suppliersData: {
+      code?: string;
+      name: string;
+      contactPerson?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+      category?: 'LUBRICANTS' | 'LPG' | 'BOTH' | 'EQUIPMENT';
+      paymentTermsDays?: number;
+      taxNumber?: string;
+    }[]
+  ) => {
+    let createdCount = 0;
+    let updatedCount = 0;
+    const now = new Date().toISOString();
+
+    setSuppliers((prev) => {
+      const next = [...prev];
+      suppliersData.forEach((item) => {
+        if (!item.name || !item.name.trim()) return;
+        const idx = next.findIndex(
+          (s) =>
+            s.name.toLowerCase().trim() === item.name.toLowerCase().trim() ||
+            (item.code && s.code.toUpperCase().trim() === item.code.toUpperCase().trim())
+        );
+
+        if (idx >= 0) {
+          next[idx] = {
+            ...next[idx],
+            contactPerson: item.contactPerson || next[idx].contactPerson,
+            phone: item.phone || next[idx].phone,
+            email: item.email || next[idx].email,
+            address: item.address || next[idx].address,
+            category: item.category || next[idx].category,
+            paymentTermsDays: item.paymentTermsDays !== undefined ? item.paymentTermsDays : next[idx].paymentTermsDays,
+            taxNumber: item.taxNumber || next[idx].taxNumber,
+          };
+          updatedCount++;
+        } else {
+          const newSupplier: Supplier = {
+            id: `sup-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            code: item.code || `SUP-${String(next.length + 1).padStart(3, '0')}`,
+            name: item.name.trim(),
+            contactPerson: item.contactPerson || 'Sales Desk',
+            phone: item.phone || '+260 97 0000000',
+            email: item.email || '',
+            address: item.address || '',
+            category: item.category || 'LUBRICANTS',
+            paymentTermsDays: item.paymentTermsDays ?? 30,
+            taxNumber: item.taxNumber,
+            createdAt: now,
+          };
+          next.push(newSupplier);
+          createdCount++;
+        }
+      });
+      return next;
+    });
+
+    return {
+      success: true,
+      createdCount,
+      updatedCount,
+      message: `Imported suppliers directory. ${createdCount} created, ${updatedCount} updated.`,
+    };
+  };
+
   const resetToDemoData = () => {
     setBranches(INITIAL_BRANCHES);
     setProducts(INITIAL_PRODUCTS);
@@ -2812,6 +3512,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setOwnerTreasury(INITIAL_OWNER_TREASURY);
     setBankRecords(INITIAL_BANK_RECORDS);
     setCashRecords(INITIAL_CASH_RECORDS);
+    setStockTransfers(INITIAL_STOCK_TRANSFERS);
     localStorage.clear();
   };
 
@@ -2868,9 +3569,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSuppliers(zeroedSuppliers);
     setSupplierTransactions([]);
 
-    // 7. Clear stock reconciliations & cash movements
+    // 7. Clear stock reconciliations, cash movements, & stock transfers
     setStockReconciliations([]);
     setCashMovements([]);
+    setStockTransfers([]);
 
     // 8. Zero out owner treasury balances
     const zeroedTreasury: OwnerTreasury = {
@@ -2896,6 +3598,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_supplier_tx`, JSON.stringify([]));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_reconciliations`, JSON.stringify([]));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_cash_movements`, JSON.stringify([]));
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_transfers`, JSON.stringify([]));
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_owner_treasury`, JSON.stringify(zeroedTreasury));
 
     return {
@@ -2926,6 +3629,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         supplierTransactions,
         stockReconciliations,
         cashMovements,
+        stockTransfers,
         ownerTreasury,
         bankRecords,
         cashRecords,
@@ -2961,6 +3665,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         deleteCashMovement,
         transferOwnerFunds,
         updateOwnerTreasury,
+        createStockTransfer,
+        receiveStockTransfer,
+        cancelStockTransfer,
+        deleteStockTransfer,
+        bulkImportProducts,
+        bulkImportBranchStocks,
+        bulkImportDebtors,
+        bulkImportSuppliers,
         addBankRecord,
         updateBankRecord,
         deleteBankRecord,

@@ -18,6 +18,8 @@ import { AirtelMoneyRecordsSection } from './components/owner/AirtelMoneyRecords
 import { DebtorsSection } from './components/owner/DebtorsSection';
 import { TreasuryLedgersView } from './components/owner/TreasuryLedgersView';
 import { SettingsSection } from './components/owner/SettingsSection';
+import { StockTransfersSection } from './components/stock/StockTransfersSection';
+import { DataImportSection } from './components/import/DataImportSection';
 
 // Sales & Branch Components
 import { DailySalesForm } from './components/sales/DailySalesForm';
@@ -95,6 +97,9 @@ const MainContent: React.FC = () => {
         case 'sales-history':
           return <SalesHistory />;
 
+        case 'stock-transfers':
+          return <StockTransfersSection />;
+
         case 'branch-mgr':
           return <BranchManager />;
 
@@ -136,6 +141,9 @@ const MainContent: React.FC = () => {
         case 'quarterly-reports':
           return <QuarterlyReportGenerator />;
 
+        case 'data-import':
+          return <DataImportSection />;
+
         case 'settings':
           return <SettingsSection onNavigateTab={setActiveTab} />;
 
@@ -173,6 +181,9 @@ const MainContent: React.FC = () => {
               />
             </div>
           );
+
+        case 'branch-stock-transfers':
+          return <StockTransfersSection branchViewOnlyId={currentBranchId || undefined} />;
 
         case 'branch-stock':
           return <StockReconciliation branchIdFilter={currentBranchId} />;

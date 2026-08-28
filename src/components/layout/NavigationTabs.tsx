@@ -56,11 +56,20 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     branches,
     currentBranchId,
     currentBranch,
+    stockTransfers,
     lowStockAlerts,
     totalDiscrepancyCount,
     pendingCashMovementCount,
     unpostedDailySalesCount,
   } = useApp();
+
+  // In transit transfers count
+  const inTransitTransfersCount = (stockTransfers || []).filter((t) => t.status === 'IN_TRANSIT').length;
+  const branchInTransitCount = (stockTransfers || []).filter(
+    (t) =>
+      t.status === 'IN_TRANSIT' &&
+      (t.sourceBranchId === currentBranchId || t.destinationBranchId === currentBranchId)
+  ).length;
 
   // Low stock alerts relevant to current context
   const relevantAlerts =
@@ -100,6 +109,14 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       badge: unpostedDailySalesCount > 0 ? `${unpostedDailySalesCount} Unposted` : undefined,
       badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
     },
+    {
+      id: 'stock-transfers',
+      label: 'Inter-Branch Transfers',
+      icon: Truck,
+      group: 'Operations',
+      badge: inTransitTransfersCount > 0 ? `${inTransitTransfersCount} In Transit` : undefined,
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    },
     { id: 'branch-mgr', label: 'Branch Management', icon: Building2, group: 'Operations' },
     { id: 'product-catalog', label: 'Product & Pricing', icon: Package, group: 'Operations' },
     {
@@ -125,6 +142,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     { id: 'supplier-ledger', label: 'Supplier Accounts', icon: Truck, group: 'Reconciliation' },
     { id: 'net-value', label: 'Business Net Value (Debit-Credit)', icon: Scale, group: 'Analytics', highlight: true },
     { id: 'quarterly-reports', label: 'Performance Reports', icon: FileText, group: 'Analytics', highlight: true },
+    { id: 'data-import', label: 'Excel / CSV Data Import', icon: Database, group: 'System', highlight: true },
     { id: 'settings', label: 'Settings & Data Backup', icon: Settings, group: 'System' },
   ];
 
@@ -132,6 +150,14 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     { id: 'branch-overview', label: 'Branch Overview & Stats', icon: LayoutDashboard, group: 'Site Operations' },
     { id: 'branch-sales-records', label: 'Day-to-Day Sales Records', icon: CalendarDays, group: 'Site Operations' },
     { id: 'branch-pos', label: 'Record Shift Sale (POS)', icon: ShoppingCart, group: 'Site Operations' },
+    {
+      id: 'branch-stock-transfers',
+      label: 'Inter-Branch Transfers',
+      icon: Truck,
+      group: 'Site Operations',
+      badge: branchInTransitCount > 0 ? `${branchInTransitCount} In Transit` : undefined,
+      badgeColor: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+    },
     {
       id: 'branch-stock',
       label: 'Stock & Products',

@@ -44,6 +44,7 @@ export const OwnerOverview: React.FC<OwnerOverviewProps> = ({ onNavigate, onNavi
     airtelMoneyRecords,
     suppliers,
     supplierTransactions,
+    stockTransfers,
     lowStockAlerts,
     totalDiscrepancyCount,
     cashMovements,
@@ -616,6 +617,79 @@ export const OwnerOverview: React.FC<OwnerOverviewProps> = ({ onNavigate, onNavi
             <span>Reconciliation</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
+        </div>
+      </div>
+
+      {/* Multi-Site Logistics & Enterprise Data Import Hub Quick Banners */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Inter-Branch Logistics Card */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-5 shadow-xs border border-slate-700 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-blue-600/30 border border-blue-400/30 text-blue-400 rounded-xl">
+                <Truck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white">Inter-Branch Stock Transfers</h3>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Site-to-site stock dispatch, logistics manifests &amp; verified intake.
+                </p>
+              </div>
+            </div>
+            {((stockTransfers || []).filter((t) => t.status === 'IN_TRANSIT').length > 0) && (
+              <span className="px-2.5 py-1 text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full animate-pulse">
+                {(stockTransfers || []).filter((t) => t.status === 'IN_TRANSIT').length} In Transit
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-700/60 flex items-center justify-between">
+            <div className="text-xs text-slate-400">
+              Total Logged Consignments: <strong className="text-white font-mono">{(stockTransfers || []).length}</strong>
+            </div>
+            <button
+              id="owner-goto-transfers-btn"
+              onClick={() => navigate('stock-transfers')}
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
+            >
+              <span>Manage Logistics Hub</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Excel / CSV Bulk Data Import Card */}
+        <div className="bg-gradient-to-br from-emerald-950 to-slate-900 text-white rounded-xl p-5 shadow-xs border border-emerald-900/60 flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-emerald-600/30 border border-emerald-400/30 text-emerald-400 rounded-xl">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-white">Excel / CSV Data Import Engine</h3>
+                <p className="text-xs text-emerald-200/80 mt-0.5">
+                  Bulk upload products, branch inventory counts, debtors, and suppliers.
+                </p>
+              </div>
+            </div>
+            <span className="px-2.5 py-1 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full uppercase tracking-wider">
+              Ready
+            </span>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-emerald-900/60 flex items-center justify-between">
+            <div className="text-xs text-emerald-300/80">
+              Auto-validates schemas &bull; Pre-built templates
+            </div>
+            <button
+              id="owner-goto-data-import-btn"
+              onClick={() => navigate('data-import')}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1.5 shadow-sm"
+            >
+              <span>Open Import Engine</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 

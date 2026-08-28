@@ -339,3 +339,47 @@ export interface DebtorTransaction {
   createdAt: string;
 }
 
+export type StockTransferStatus = 'IN_TRANSIT' | 'RECEIVED' | 'CANCELLED';
+
+export interface StockTransferItem {
+  productId: string;
+  productName: string;
+  productCode: string;
+  category: ProductCategory;
+  unit: string;
+  volumePerUnit: number;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+  receivedQuantity?: number;
+  damagedQuantity?: number;
+  missingQuantity?: number;
+}
+
+export interface StockTransfer {
+  id: string;
+  transferNumber: string; // e.g. "TRF-2026-001"
+  sourceBranchId: string;
+  sourceBranchName: string;
+  sourceBranchCode: string;
+  destinationBranchId: string;
+  destinationBranchName: string;
+  destinationBranchCode: string;
+  transferDate: string; // YYYY-MM-DD
+  items: StockTransferItem[];
+  totalQuantity: number;
+  totalVolumeLitersOrKg: number;
+  totalValuation: number;
+  status: StockTransferStatus;
+  dispatchedBy: string;
+  dispatchedAt: string;
+  driverOrCourierName?: string;
+  vehicleRegNo?: string;
+  waybillOrRefNo?: string;
+  receivedBy?: string;
+  receivedAt?: string;
+  receivingNotes?: string;
+  notes?: string;
+  createdAt: string;
+}
+

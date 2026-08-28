@@ -68,6 +68,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
     supplierTransactions,
     stockReconciliations,
     cashMovements,
+    stockTransfers,
     ownerTreasury,
     formatSystemDataToZero,
     resetToDemoData,
@@ -94,6 +95,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
     supplierTransactions,
     stockReconciliations,
     cashMovements,
+    stockTransfers,
     ownerTreasury,
   };
 

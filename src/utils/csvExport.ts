@@ -14,6 +14,7 @@ import {
   StockReconciliation,
   BranchCashMovement,
   OwnerTreasury,
+  StockTransfer,
 } from '../types';
 
 /**
@@ -857,6 +858,122 @@ export const generateBranchesCsv = (branches: Branch[]): string => {
   return buildCsvString(headers, rows);
 };
 
+/**
+ * 14. INTER-BRANCH STOCK TRANSFERS DATA
+ */
+export const getStockTransfersTableData = (stockTransfers: StockTransfer[] = []): TableData => {
+  const headers = [
+    'Transfer ID',
+    'Transfer No',
+    'Transfer Date',
+    'Source Branch ID',
+    'Source Branch Name',
+    'Source Branch Code',
+    'Destination Branch ID',
+    'Destination Branch Name',
+    'Destination Branch Code',
+    'Product SKU / Code',
+    'Product Name',
+    'Packaging Unit',
+    'Quantity Dispatched',
+    'Unit Cost (ZMW)',
+    'Line Total Cost (ZMW)',
+    'Total Transfer Qty',
+    'Total Volume (L/Kg)',
+    'Total Transfer Valuation (ZMW)',
+    'Transfer Status',
+    'Dispatched By',
+    'Dispatched Timestamp',
+    'Driver / Courier',
+    'Vehicle Reg No',
+    'Waybill / Ref No',
+    'Received By',
+    'Received Timestamp',
+    'Receiving Notes',
+    'Notes',
+    'Created Timestamp',
+  ];
+
+  const rows: (string | number | boolean | null | undefined)[][] = [];
+
+  stockTransfers.forEach((trf) => {
+    if (trf.items && trf.items.length > 0) {
+      trf.items.forEach((item) => {
+        rows.push([
+          trf.id,
+          trf.transferNumber,
+          trf.transferDate,
+          trf.sourceBranchId,
+          trf.sourceBranchName,
+          trf.sourceBranchCode,
+          trf.destinationBranchId,
+          trf.destinationBranchName,
+          trf.destinationBranchCode,
+          item.productCode,
+          item.productName,
+          item.unit,
+          item.quantity,
+          item.unitCost,
+          item.totalCost,
+          trf.totalQuantity,
+          trf.totalVolumeLitersOrKg,
+          trf.totalValuation,
+          trf.status,
+          trf.dispatchedBy,
+          trf.dispatchedAt,
+          trf.driverOrCourierName || '',
+          trf.vehicleRegNo || '',
+          trf.waybillOrRefNo || '',
+          trf.receivedBy || '',
+          trf.receivedAt || '',
+          trf.receivingNotes || '',
+          trf.notes || '',
+          trf.createdAt,
+        ]);
+      });
+    } else {
+      rows.push([
+        trf.id,
+        trf.transferNumber,
+        trf.transferDate,
+        trf.sourceBranchId,
+        trf.sourceBranchName,
+        trf.sourceBranchCode,
+        trf.destinationBranchId,
+        trf.destinationBranchName,
+        trf.destinationBranchCode,
+        '',
+        '',
+        '',
+        0,
+        0,
+        0,
+        trf.totalQuantity,
+        trf.totalVolumeLitersOrKg,
+        trf.totalValuation,
+        trf.status,
+        trf.dispatchedBy,
+        trf.dispatchedAt,
+        trf.driverOrCourierName || '',
+        trf.vehicleRegNo || '',
+        trf.waybillOrRefNo || '',
+        trf.receivedBy || '',
+        trf.receivedAt || '',
+        trf.receivingNotes || '',
+        trf.notes || '',
+        trf.createdAt,
+      ]);
+    }
+  });
+
+  return { headers, rows };
+};
+
+export const generateStockTransfersCsv = (stockTransfers: StockTransfer[] = []): string => {
+  const { headers, rows } = getStockTransfersTableData(stockTransfers);
+  return buildCsvString(headers, rows);
+};
+
 // =========================================================================
 // MULTI-SHEET EXCEL WORKBOOK EXPORT (.XLSX) - EACH SECTION ON A SEPARATE SHEET
 // =========================================================================
@@ -875,6 +992,7 @@ export interface SystemDataExportPayload {
   supplierTransactions: SupplierTransaction[];
   stockReconciliations: StockReconciliation[];
   cashMovements: BranchCashMovement[];
+  stockTransfers?: StockTransfer[];
   ownerTreasury?: OwnerTreasury;
 }
 
@@ -1015,6 +1133,10 @@ export const downloadMultiSheetExcelBackup = (
   const cashMovementsTable = getCashMovementsTableData(data.cashMovements);
   addWorksheet('Cash Handovers', cashMovementsTable.headers, cashMovementsTable.rows);
 
+  // 15. INTER-BRANCH STOCK TRANSFERS SHEET
+  const stockTransfersTable = getStockTransfersTableData(data.stockTransfers || []);
+  addWorksheet('Stock Transfers', stockTransfersTable.headers, stockTransfersTable.rows);
+
   // Write and trigger download
   const filename =
     customFilename || `Enterprise_Master_MultiSheet_Backup_${dateStr}.xlsx`;
@@ -1132,6 +1254,13 @@ export const generateConsolidatedMasterCsv = (data: SystemDataExportPayload): st
     `\r\n`
   );
 
+  // Table 14: Stock Transfers
+  sections.push(
+    `# SECTION 14: INTER-BRANCH STOCK TRANSFERS & SITE LOGISTICS`,
+    generateStockTransfersCsv(data.stockTransfers || []),
+    `\r\n`
+  );
+
   return sections.join('\r\n');
 };
 
@@ -1166,7 +1295,8 @@ export const downloadAllIndividualCsvFiles = (data: SystemDataExportPayload): vo
       content: generateStockReconciliationsCsv(data.stockReconciliations),
     },
     { name: `12_branch_cash_movements_${dateStr}.csv`, content: generateCashMovementsCsv(data.cashMovements) },
-    { name: `13_branches_directory_${dateStr}.csv`, content: generateBranchesCsv(data.branches) },
+    { name: `13_stock_transfers_${dateStr}.csv`, content: generateStockTransfersCsv(data.stockTransfers || []) },
+    { name: `14_branches_directory_${dateStr}.csv`, content: generateBranchesCsv(data.branches) },
   ];
 
   files.forEach((f, idx) => {
