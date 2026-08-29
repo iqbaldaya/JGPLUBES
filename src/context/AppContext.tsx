@@ -318,6 +318,12 @@ interface AppContextType {
     branchesCount: number;
     productsCount: number;
   };
+
+  // Database Connection & Real-Time Sync Status
+  isDbConnected: boolean;
+  dbSyncError: string | null;
+  lastDbSyncTime: Date | null;
+  manualSyncWithDatabase: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -420,18 +426,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return debtors.reduce((sum, d) => sum + (Number(d.outstandingBalance) || 0), 0);
   }, [debtors]);
 
-  // Load and continuously sync state from Cloud SQL PostgreSQL Backend
+  // Real-Time Database Connection Tracking
+  const [isDbConnected, setIsDbConnected] = useState<boolean>(false);
+  const [dbSyncError, setDbSyncError] = useState<string | null>(null);
+  const [lastDbSyncTime, setLastDbSyncTime] = useState<Date | null>(null);
+
+  // Load and continuously sync state from Cloud SQL / Supabase PostgreSQL Backend
   const syncWithDatabase = async () => {
     try {
       const data = await api.bootstrap();
       if (data) {
+        setIsDbConnected(true);
+        setDbSyncError(null);
+        setLastDbSyncTime(new Date());
+
         if (Array.isArray(data.branches) && data.branches.length > 0) {
           setBranches(data.branches);
         }
         if (Array.isArray(data.products) && data.products.length > 0) {
           setProducts(data.products);
         }
-        if (Array.isArray(data.branchStocks) && data.branchStocks.length > 0) {
+        if (Array.isArray(data.stocks) && data.stocks.length > 0) {
+          setBranchStocks(data.stocks);
+        } else if (Array.isArray(data.branchStocks) && data.branchStocks.length > 0) {
           setBranchStocks(data.branchStocks);
         }
         if (Array.isArray(data.dailySales)) {
@@ -455,7 +472,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (Array.isArray(data.cashMovements)) {
           setCashMovements(data.cashMovements);
         }
-        if (data.ownerTreasury) {
+        if (data.treasury) {
+          setOwnerTreasury(data.treasury);
+        } else if (data.ownerTreasury) {
           setOwnerTreasury(data.ownerTreasury);
         }
         if (Array.isArray(data.bankRecords)) {
@@ -474,8 +493,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setStockTransfers(data.stockTransfers);
         }
       }
-    } catch (err) {
-      console.warn('Syncing with Cloud SQL PostgreSQL...', err);
+    } catch (err: any) {
+      console.warn('PostgreSQL Backend Sync Warning:', err?.message || err);
+      setIsDbConnected(false);
+      setDbSyncError(err?.message || 'Failed to connect to database server');
     }
   };
 
@@ -3918,6 +3939,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         verifyAirtelRecord: verifyAirtelMoneyRecord,
         resetToDemoData,
         formatSystemDataToZero,
+        isDbConnected,
+        dbSyncError,
+        lastDbSyncTime,
+        manualSyncWithDatabase: syncWithDatabase,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import {
   Menu,
@@ -9,6 +9,13 @@ import {
   PlusCircle,
   Clock,
   Settings,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  X,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -29,7 +36,24 @@ export const Header: React.FC<HeaderProps> = ({
     currentBranch,
     lowStockAlerts,
     totalDiscrepancyCount,
+    isDbConnected,
+    dbSyncError,
+    lastDbSyncTime,
+    manualSyncWithDatabase,
   } = useApp();
+
+  const [isDbModalOpen, setIsDbModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [copiedEnv, setCopiedEnv] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await manualSyncWithDatabase();
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Tab label helper for breadcrumb
   const getTabLabel = (id: string) => {
@@ -128,6 +152,31 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Right: Alerts & Actions */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Real-Time Database Connection Badge */}
+            <button
+              id="btn-header-db-status"
+              onClick={() => setIsDbModalOpen(true)}
+              className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition ${
+                isDbConnected
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+              }`}
+              title="Click to view Database Connection Diagnostics & Real-Time Sync Status"
+            >
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${
+                  isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
+              />
+              <Database className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">
+                {isDbConnected ? 'PostgreSQL Live' : 'Database Offline / Local'}
+              </span>
+              <span className="sm:hidden">
+                {isDbConnected ? 'Live' : 'Local'}
+              </span>
+            </button>
+
             {/* Live date stamp */}
             <div className="hidden xl:flex items-center space-x-1.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -211,6 +260,114 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
             Site ID: {currentBranch.id}
           </span>
+        </div>
+      )}
+      {/* Database Connection Diagnostic Modal */}
+      {isDbModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div
+                  className={`p-2 rounded-lg ${
+                    isDbConnected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
+                  }`}
+                >
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold">Cloud PostgreSQL Database</h3>
+                  <p className="text-xs text-slate-400">Multi-Device Synchronization Diagnostics</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDbModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-5">
+              {/* Status Banner */}
+              <div
+                className={`p-4 rounded-xl border flex items-start space-x-3.5 ${
+                  isDbConnected
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                    : 'bg-amber-50/70 border-amber-300 text-amber-950'
+                }`}
+              >
+                {isDbConnected ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                )}
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-sm">
+                    {isDbConnected ? 'PostgreSQL Backend Connected' : 'Running in Offline / LocalStorage Mode'}
+                  </div>
+                  <p className="leading-relaxed">
+                    {isDbConnected
+                      ? 'Every sale, stock update, debtor entry, and cash remittance is syncing in real-time across all connected devices and browsers.'
+                      : 'Changes are currently stored in this browser only. To sync across all phones, tablets, and computers, connect your database.'}
+                  </p>
+                  {lastDbSyncTime && (
+                    <div className="text-[11px] text-slate-500 pt-1">
+                      Last sync timestamp: {lastDbSyncTime.toLocaleTimeString()}
+                    </div>
+                  )}
+                  {dbSyncError && !isDbConnected && (
+                    <div className="mt-2 p-2 bg-red-100/80 border border-red-200 rounded text-red-700 font-mono text-[11px] break-all">
+                      {dbSyncError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Vercel Environment Configuration Guide */}
+              {!isDbConnected && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs text-slate-700">
+                  <div className="font-bold text-slate-900 flex items-center justify-between">
+                    <span>How to enable PostgreSQL Live on Vercel:</span>
+                  </div>
+                  <ol className="list-decimal pl-4 space-y-1.5 leading-relaxed text-slate-600">
+                    <li>
+                      Go to your <strong>Vercel Project Dashboard</strong> &rarr; <strong>Settings</strong> &rarr; <strong>Environment Variables</strong>.
+                    </li>
+                    <li>
+                      Add <strong>DATABASE_URL</strong> with your Supabase connection string.
+                    </li>
+                    <li>
+                      Click <strong>Deployments</strong> &rarr; <strong>Redeploy</strong> to apply the changes.
+                    </li>
+                  </ol>
+                </div>
+              )}
+
+              {/* Manual Action Buttons */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Checking Backend...' : 'Test Connection Now'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsDbModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </header>

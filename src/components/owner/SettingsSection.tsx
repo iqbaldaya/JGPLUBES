@@ -72,6 +72,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
     ownerTreasury,
     formatSystemDataToZero,
     resetToDemoData,
+    isDbConnected,
+    dbSyncError,
+    lastDbSyncTime,
+    manualSyncWithDatabase,
   } = useApp();
 
   const [isFormatModalOpen, setIsFormatModalOpen] = useState(false);
@@ -79,6 +83,21 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
   const [formatSuccessMessage, setFormatSuccessMessage] = useState<string | null>(null);
   const [isResetDemoModalOpen, setIsResetDemoModalOpen] = useState(false);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [isTestingDb, setIsTestingDb] = useState(false);
+  const [dbTestMessage, setDbTestMessage] = useState<string | null>(null);
+
+  const handleTestDatabase = async () => {
+    setIsTestingDb(true);
+    setDbTestMessage(null);
+    try {
+      await manualSyncWithDatabase();
+      setDbTestMessage('Database connection test complete. State synchronized.');
+    } catch (err: any) {
+      setDbTestMessage(`Connection test error: ${err?.message || 'Failed'}`);
+    } finally {
+      setIsTestingDb(false);
+    }
+  };
 
   // Consolidated data payload
   const systemPayload: SystemDataExportPayload = {
@@ -504,6 +523,85 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
               <Database className="w-3.5 h-3.5 text-slate-600" />
               <span>JSON Snapshot</span>
             </button>
+          </div>
+        </div>
+
+        {/* Real-Time Database Connection & Synchronization Status Card */}
+        <div
+          className={`p-5 sm:p-6 rounded-2xl border-2 shadow-xs transition ${
+            isDbConnected
+              ? 'bg-gradient-to-br from-emerald-50/90 to-slate-50 border-emerald-300'
+              : 'bg-gradient-to-br from-amber-50/90 to-slate-50 border-amber-300'
+          }`}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2.5">
+                <span
+                  className={`p-2 rounded-xl text-white shadow-xs ${
+                    isDbConnected ? 'bg-emerald-600' : 'bg-amber-600'
+                  }`}
+                >
+                  <Database className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                      }`}
+                    />
+                    <h3 className="font-black text-base sm:text-lg text-slate-900">
+                      {isDbConnected
+                        ? 'Cloud PostgreSQL Database: Connected & Live'
+                        : 'Cloud PostgreSQL Database: LocalStorage Mode'}
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Multi-Device Instant Synchronization Engine
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-700 max-w-2xl leading-relaxed">
+                {isDbConnected
+                  ? 'All 13 data modules (Daily Sales POS, Stock Transfers, Cash Ledgers, Airtel Money, Debtors, Supplier Invoices) are actively synchronized in real-time across every browser and device.'
+                  : 'Your application is currently storing changes in browser storage. To synchronize sales and stock across multiple phones, laptops, and tablets in real-time, configure your DATABASE_URL in Vercel.'}
+              </p>
+
+              {lastDbSyncTime && (
+                <div className="text-[11px] font-mono text-slate-500 flex items-center space-x-1.5 pt-1">
+                  <span>Last sync:</span>
+                  <span className="font-semibold text-slate-700">
+                    {lastDbSyncTime.toLocaleTimeString()}
+                  </span>
+                </div>
+              )}
+
+              {dbTestMessage && (
+                <div className="text-xs font-medium text-slate-800 bg-white/80 p-2.5 rounded-lg border border-slate-200">
+                  {dbTestMessage}
+                </div>
+              )}
+
+              {dbSyncError && !isDbConnected && (
+                <div className="text-[11px] font-mono text-red-700 bg-red-50 p-2.5 rounded-lg border border-red-200">
+                  Error Details: {dbSyncError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row gap-2.5 shrink-0">
+              <button
+                id="btn-test-db-connection"
+                onClick={handleTestDatabase}
+                disabled={isTestingDb}
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-xs transition cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isTestingDb ? 'animate-spin' : ''}`} />
+                <span>{isTestingDb ? 'Testing Connection...' : 'Test Connection Now'}</span>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -61,6 +61,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     totalDiscrepancyCount,
     pendingCashMovementCount,
     unpostedDailySalesCount,
+    isDbConnected,
   } = useApp();
 
   // In transit transfers count
@@ -340,13 +341,19 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       <div className="p-3 border-t border-slate-700/80 bg-[#0F172A]/70 text-[11px] text-slate-400">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span className="font-semibold text-slate-300">{branches.length} Sites Online</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isDbConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+              }`}
+            />
+            <span className="font-semibold text-slate-300">
+              {isDbConnected ? 'PostgreSQL Live' : 'Offline / Local'}
+            </span>
           </div>
           <span className="text-[10px] text-slate-500 font-mono">v2.4 Pro</span>
         </div>
         <p className="text-[10px] text-slate-500 mt-1 truncate">
-          Motor Oils &amp; LPG Multi-Site System
+          {branches.length} Sites • Multi-Device Real-Time Sync
         </p>
       </div>
     </div>
