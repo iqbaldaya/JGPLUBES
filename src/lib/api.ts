@@ -2,7 +2,15 @@
 export const api = {
   async bootstrap() {
     const res = await fetch('/api/bootstrap');
-    if (!res.ok) throw new Error('Failed to load data from PostgreSQL server');
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || 'Failed to load data from PostgreSQL server');
+    }
+    return res.json();
+  },
+
+  async checkDbStatus() {
+    const res = await fetch('/api/db-status');
     return res.json();
   },
 

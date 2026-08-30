@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../lib/api';
 import {
   Menu,
   ShieldCheck,
@@ -17,6 +18,7 @@ import {
   Copy,
   Check,
   LogOut,
+  Server,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -46,12 +48,28 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [copiedEnv, setCopiedEnv] = useState(false);
+  const [dbTestResult, setDbTestResult] = useState<{
+    connected?: boolean;
+    isConfigured?: boolean;
+    message?: string;
+    error?: string;
+    serverTime?: string;
+  } | null>(null);
 
   const handleManualSync = async () => {
     setIsSyncing(true);
+    setDbTestResult(null);
     try {
+      const status = await api.checkDbStatus();
+      setDbTestResult(status);
       await manualSyncWithDatabase();
+    } catch (err: any) {
+      setDbTestResult({
+        connected: false,
+        isConfigured: false,
+        error: err?.message || 'Server connection failed',
+        message: 'Could not communicate with the backend server.',
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -333,6 +351,30 @@ export const Header: React.FC<HeaderProps> = ({
                   {dbSyncError && !isDbConnected && (
                     <div className="mt-2 p-2 bg-red-100/80 border border-red-200 rounded text-red-700 font-mono text-[11px] break-all">
                       {dbSyncError}
+                    </div>
+                  )}
+                  {dbTestResult && (
+                    <div
+                      className={`mt-2 p-2.5 rounded-lg border text-xs font-medium ${
+                        dbTestResult.connected
+                          ? 'bg-emerald-100/80 border-emerald-300 text-emerald-900'
+                          : 'bg-amber-100/80 border-amber-300 text-amber-900'
+                      }`}
+                    >
+                      <div className="font-bold flex items-center space-x-1.5">
+                        {dbTestResult.connected ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 inline" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-amber-600 inline" />
+                        )}
+                        <span>{dbTestResult.message || (dbTestResult.connected ? 'Connected' : 'Not Connected')}</span>
+                      </div>
+                      {dbTestResult.error && (
+                        <p className="font-mono text-[11px] text-red-700 mt-1">{dbTestResult.error}</p>
+                      )}
+                      {dbTestResult.serverTime && (
+                        <p className="text-[10px] text-slate-600 mt-1">DB Time: {dbTestResult.serverTime}</p>
+                      )}
                     </div>
                   )}
                 </div>

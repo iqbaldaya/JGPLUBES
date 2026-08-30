@@ -471,7 +471,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncWithDatabase = async () => {
     try {
       const data = await api.bootstrap();
-      if (data) {
+      if (data && data.connected) {
         setIsDbConnected(true);
         setDbSyncError(null);
         setLastDbSyncTime(new Date());
@@ -528,11 +528,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (Array.isArray(data.stockTransfers)) {
           setStockTransfers(data.stockTransfers);
         }
+      } else if (data && !data.connected) {
+        setIsDbConnected(false);
+        if (data.isConfigured && data.error) {
+          setDbSyncError(data.error);
+        } else {
+          setDbSyncError(null);
+        }
       }
     } catch (err: any) {
-      console.warn('PostgreSQL Backend Sync Warning:', err?.message || err);
       setIsDbConnected(false);
-      setDbSyncError(err?.message || 'Failed to connect to database server');
+      // Only show error if unexpected failure
+      setDbSyncError(err?.message || 'Database connection offline');
     }
   };
 

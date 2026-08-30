@@ -2,6 +2,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import { isDatabaseConfigured, createPool } from './src/db/index.ts';
 import { seedDatabaseIfEmpty } from './src/db/seed.ts';
 import {
   getAllBranches,
@@ -70,13 +71,57 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// 1. HEALTH ENDPOINT
+// 1. HEALTH & DATABASE STATUS ENDPOINTS
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    databaseConfigured: isDatabaseConfigured(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get('/api/db-status', async (req, res) => {
+  const isConfigured = isDatabaseConfigured();
+  if (!isConfigured) {
+    return res.json({
+      connected: false,
+      isConfigured: false,
+      provider: 'Render PostgreSQL',
+      message: 'DATABASE_URL is not configured in this environment. The app is running smoothly in browser storage mode.',
+    });
+  }
+
+  try {
+    const pool = createPool();
+    const result = await pool.query('SELECT NOW() as current_time');
+    return res.json({
+      connected: true,
+      isConfigured: true,
+      provider: 'Render PostgreSQL',
+      serverTime: result.rows[0]?.current_time,
+      message: 'PostgreSQL connection active and responding in real-time.',
+    });
+  } catch (err: any) {
+    return res.json({
+      connected: false,
+      isConfigured: true,
+      provider: 'Render PostgreSQL',
+      error: err.message || 'Could not connect to database',
+      message: 'DATABASE_URL is configured, but failed to connect to PostgreSQL database.',
+    });
+  }
 });
 
 // 2. BOOTSTRAP INITIAL DATA & SEED
 app.get('/api/bootstrap', async (req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.json({
+      connected: false,
+      isConfigured: false,
+      message: 'DATABASE_URL is not configured in this environment.',
+    });
+  }
+
   try {
     await seedDatabaseIfEmpty();
     const [
@@ -116,6 +161,8 @@ app.get('/api/bootstrap', async (req, res) => {
     ]);
 
     res.json({
+      connected: true,
+      isConfigured: true,
       branches: branchesData,
       products: productsData,
       branchStocks: stocksData,
@@ -134,8 +181,12 @@ app.get('/api/bootstrap', async (req, res) => {
       stockTransfers: stockTransfersData,
     });
   } catch (error: any) {
-    console.error('Bootstrap error:', error);
-    res.status(500).json({ error: error.message || 'Bootstrap failed' });
+    console.warn('Bootstrap database query warning:', error.message || error);
+    res.status(503).json({
+      connected: false,
+      isConfigured: true,
+      error: error.message || 'Database connection error',
+    });
   }
 });
 
@@ -678,10 +729,15 @@ app.delete('/api/stock-transfers/:id', async (req, res) => {
 
 // START SERVER & ATTACH VITE MIDDLEWARE
 async function start() {
-  try {
-    await seedDatabaseIfEmpty();
-  } catch (seedErr) {
-    console.error('Error during initial database seeding:', seedErr);
+  if (isDatabaseConfigured()) {
+    try {
+      await seedDatabaseIfEmpty();
+      console.log('PostgreSQL database connected and tables verified.');
+    } catch (seedErr: any) {
+      console.warn('Initial database sync notice:', seedErr?.message || seedErr);
+    }
+  } else {
+    console.log('No DATABASE_URL configured in this environment. Running in offline / local mode.');
   }
 
   if (process.env.NODE_ENV !== 'production') {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../lib/api';
 import {
   Download,
   FileSpreadsheet,
@@ -90,10 +91,17 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
     setIsTestingDb(true);
     setDbTestMessage(null);
     try {
+      const status = await api.checkDbStatus();
+      if (status.connected) {
+        setDbTestMessage(`PostgreSQL Live Connected: ${status.message || 'Ready'} (${status.serverTime || 'Active'})`);
+      } else if (!status.isConfigured) {
+        setDbTestMessage(`Notice: DATABASE_URL is not configured in this environment. The app is storing changes locally in browser storage.`);
+      } else {
+        setDbTestMessage(`Connection Error: ${status.error || status.message}`);
+      }
       await manualSyncWithDatabase();
-      setDbTestMessage('Database connection test complete. State synchronized.');
     } catch (err: any) {
-      setDbTestMessage(`Connection test error: ${err?.message || 'Failed'}`);
+      setDbTestMessage(`Connection test error: ${err?.message || 'Failed to reach server'}`);
     } finally {
       setIsTestingDb(false);
     }
