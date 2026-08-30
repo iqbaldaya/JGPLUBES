@@ -2,7 +2,7 @@
 export const api = {
   async bootstrap() {
     const res = await fetch('/api/bootstrap');
-    if (!res.ok) throw new Error('Failed to load data from Cloud SQL');
+    if (!res.ok) throw new Error('Failed to load data from PostgreSQL server');
     return res.json();
   },
 

@@ -338,21 +338,24 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
 
-              {/* Vercel Environment Configuration Guide */}
+              {/* Render Environment Configuration Guide */}
               {!isDbConnected && (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-xs text-slate-700">
                   <div className="font-bold text-slate-900 flex items-center justify-between">
-                    <span>How to enable PostgreSQL Live on Vercel:</span>
+                    <span>How to enable PostgreSQL Live on Render:</span>
                   </div>
                   <ol className="list-decimal pl-4 space-y-1.5 leading-relaxed text-slate-600">
                     <li>
-                      Go to your <strong>Vercel Project Dashboard</strong> &rarr; <strong>Settings</strong> &rarr; <strong>Environment Variables</strong>.
+                      In your <strong>Render Dashboard</strong>, navigate to your <strong>Web Service</strong> (and your <strong>Render PostgreSQL</strong> database).
                     </li>
                     <li>
-                      Add <strong>DATABASE_URL</strong> with your Supabase connection string.
+                      Go to <strong>Environment</strong> &rarr; <strong>Environment Variables</strong>.
                     </li>
                     <li>
-                      Click <strong>Deployments</strong> &rarr; <strong>Redeploy</strong> to apply the changes.
+                      Add <strong>DATABASE_URL</strong> and paste your Render PostgreSQL <em>Internal Database URL</em> (or <em>External Database URL</em>).
+                    </li>
+                    <li>
+                      Save changes to redeploy with live database synchronization.
                     </li>
                   </ol>
                 </div>

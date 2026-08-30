@@ -467,7 +467,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [dbSyncError, setDbSyncError] = useState<string | null>(null);
   const [lastDbSyncTime, setLastDbSyncTime] = useState<Date | null>(null);
 
-  // Load and continuously sync state from Cloud SQL / Supabase PostgreSQL Backend
+  // Load and continuously sync state from PostgreSQL Backend (e.g. Render PostgreSQL)
   const syncWithDatabase = async () => {
     try {
       const data = await api.bootstrap();
@@ -771,7 +771,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setBranches((prev) => [...prev, newBranch]);
 
-    // Persist to Cloud SQL PostgreSQL
+    // Persist to PostgreSQL Database
     api.createBranch(newBranch).catch(console.error);
 
     // Initialize stock for all active products for the new branch with 0 quantity
@@ -847,7 +847,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setProducts((prev) => [...prev, newProduct]);
 
-    // Persist to Cloud SQL PostgreSQL
+    // Persist to PostgreSQL Database
     api.createProduct(newProduct).catch(console.error);
 
     // Add stock records for all branches
@@ -1257,7 +1257,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
 
-    // Persist to Cloud SQL
+    // Persist to PostgreSQL Database
     api.updateDailySale(targetRecord.id, targetRecord).catch(console.error);
 
     // Apply ledger and inventory postings immediately

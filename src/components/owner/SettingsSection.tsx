@@ -566,7 +566,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({ onNavigateTab 
               <p className="text-xs text-slate-700 max-w-2xl leading-relaxed">
                 {isDbConnected
                   ? 'All 13 data modules (Daily Sales POS, Stock Transfers, Cash Ledgers, Airtel Money, Debtors, Supplier Invoices) are actively synchronized in real-time across every browser and device.'
-                  : 'Your application is currently storing changes in browser storage. To synchronize sales and stock across multiple phones, laptops, and tablets in real-time, configure your DATABASE_URL in Vercel.'}
+                  : 'Your application is currently storing changes in browser storage. To synchronize sales and stock across multiple phones, laptops, and tablets in real-time, configure your DATABASE_URL in your Render environment variables.'}
               </p>
 
               {lastDbSyncTime && (
