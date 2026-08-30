@@ -16,6 +16,11 @@ import {
   ShieldCheck,
   AlertTriangle,
   Layers,
+  Lock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Copy,
 } from 'lucide-react';
 
 export const BranchManager: React.FC = () => {
@@ -24,6 +29,8 @@ export const BranchManager: React.FC = () => {
   const [isAddingBranch, setIsAddingBranch] = useState(false);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
+  const [revealedPasswords, setRevealedPasswords] = useState<{ [branchId: string]: boolean }>({});
+  const [copiedBranchId, setCopiedBranchId] = useState<string | null>(null);
 
   // New Branch Form State
   const [newBranchData, setNewBranchData] = useState({
@@ -35,6 +42,7 @@ export const BranchManager: React.FC = () => {
     openingCashFloat: 1000,
     airtelMerchantNumber: '',
     targetMonthlySales: 80000,
+    password: '',
     status: 'ACTIVE' as const,
   });
 
@@ -42,6 +50,20 @@ export const BranchManager: React.FC = () => {
   const [editFormData, setEditFormData] = useState<Partial<Branch>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const togglePasswordVisibility = (branchId: string) => {
+    setRevealedPasswords((prev) => ({
+      ...prev,
+      [branchId]: !prev[branchId],
+    }));
+  };
+
+  const handleCopyPassword = (branchId: string, pwd?: string) => {
+    if (!pwd) return;
+    navigator.clipboard?.writeText(pwd);
+    setCopiedBranchId(branchId);
+    setTimeout(() => setCopiedBranchId(null), 2000);
+  };
 
   const handleStartEdit = (branch: Branch) => {
     setEditingBranchId(branch.id);
@@ -54,6 +76,7 @@ export const BranchManager: React.FC = () => {
       openingCashFloat: branch.openingCashFloat,
       airtelMerchantNumber: branch.airtelMerchantNumber,
       targetMonthlySales: branch.targetMonthlySales,
+      password: branch.password || '123456',
       status: branch.status,
     });
     setErrorMsg(null);
@@ -97,11 +120,12 @@ export const BranchManager: React.FC = () => {
       openingCashFloat: Number(editFormData.openingCashFloat) || 0,
       airtelMerchantNumber: editFormData.airtelMerchantNumber?.trim() || '',
       targetMonthlySales: Number(editFormData.targetMonthlySales) || 0,
+      password: editFormData.password?.trim() || '123456',
       status: editFormData.status || 'ACTIVE',
     });
 
     setEditingBranchId(null);
-    setSuccessMsg('Branch details and Lubes Champ successfully updated!');
+    setSuccessMsg('Branch details and portal password successfully updated!');
     setTimeout(() => setSuccessMsg(null), 3500);
   };
 
@@ -121,6 +145,9 @@ export const BranchManager: React.FC = () => {
       return;
     }
 
+    const defaultPassword =
+      newBranchData.password.trim() || `${newBranchData.code.toLowerCase().replace(/[^a-z0-9]/g, '')}123` || '123456';
+
     addBranch({
       name: newBranchData.name.trim(),
       code: newBranchData.code.toUpperCase().trim(),
@@ -130,6 +157,7 @@ export const BranchManager: React.FC = () => {
       openingCashFloat: Number(newBranchData.openingCashFloat) || 1000,
       airtelMerchantNumber: newBranchData.airtelMerchantNumber.trim(),
       targetMonthlySales: Number(newBranchData.targetMonthlySales) || 80000,
+      password: defaultPassword,
       status: 'ACTIVE',
     });
 
@@ -143,9 +171,10 @@ export const BranchManager: React.FC = () => {
       openingCashFloat: 1000,
       airtelMerchantNumber: '',
       targetMonthlySales: 80000,
+      password: '',
       status: 'ACTIVE',
     });
-    setSuccessMsg('New branch successfully created and added to the network!');
+    setSuccessMsg('New branch successfully created and portal login password configured!');
     setTimeout(() => setSuccessMsg(null), 3500);
   };
 
@@ -315,10 +344,45 @@ export const BranchManager: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                    <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Branch Portal Password *</span>
+                  </label>
+                  <input
+                    id="input-new-branch-password"
+                    type="text"
+                    placeholder="e.g. chingola123 (Login password)"
+                    value={newBranchData.password}
+                    onChange={(e) => setNewBranchData({ ...newBranchData, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-medium bg-blue-50/30"
+                  />
+                  <p className="text-[10px] text-stone-500 mt-1">
+                    Used by Lubes Champ to sign into this branch portal. If blank, auto-defaults to branchcode123.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1 flex items-center space-x-1">
+                    <Smartphone className="w-3.5 h-3.5 text-red-500" />
+                    <span>Airtel Merchant #</span>
+                  </label>
+                  <input
+                    id="input-new-branch-merchant"
+                    type="text"
+                    placeholder="AM-CHN-001"
+                    value={newBranchData.airtelMerchantNumber}
+                    onChange={(e) => setNewBranchData({ ...newBranchData, airtelMerchantNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Opening Float (K)
+                    Opening Cash Float (K)
                   </label>
                   <input
                     id="input-new-branch-float"
@@ -332,7 +396,7 @@ export const BranchManager: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Monthly Target (K)
+                    Target Monthly Sales (K)
                   </label>
                   <input
                     id="input-new-branch-target"
@@ -340,20 +404,6 @@ export const BranchManager: React.FC = () => {
                     min="0"
                     value={newBranchData.targetMonthlySales}
                     onChange={(e) => setNewBranchData({ ...newBranchData, targetMonthlySales: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Airtel Merchant #
-                  </label>
-                  <input
-                    id="input-new-branch-merchant"
-                    type="text"
-                    placeholder="AM-CHN-001"
-                    value={newBranchData.airtelMerchantNumber}
-                    onChange={(e) => setNewBranchData({ ...newBranchData, airtelMerchantNumber: e.target.value })}
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm"
                   />
                 </div>
@@ -474,7 +524,7 @@ export const BranchManager: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-stone-700 uppercase mb-1">
                           Location Address
@@ -510,6 +560,20 @@ export const BranchManager: React.FC = () => {
                           className="w-full px-3 py-1.5 border border-stone-300 rounded-lg bg-white text-sm font-mono"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-stone-700 uppercase mb-1 flex items-center space-x-1 text-blue-700">
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Portal Password *</span>
+                        </label>
+                        <input
+                          id={`input-edit-branch-password-${branch.id}`}
+                          type="text"
+                          value={editFormData.password || ''}
+                          onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                          className="w-full px-3 py-1.5 border border-blue-400 bg-blue-50/50 rounded-lg text-sm font-mono text-blue-900 font-semibold focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -532,7 +596,7 @@ export const BranchManager: React.FC = () => {
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap items-center text-xs text-stone-500 gap-x-4 gap-y-1">
+                      <div className="flex flex-wrap items-center text-xs text-stone-500 gap-x-4 gap-y-1.5">
                         <div className="flex items-center space-x-1">
                           <Award className="w-3.5 h-3.5 text-amber-600" />
                           <span>Lubes Champ: <strong className="text-stone-900 font-semibold">{branch.lubesChamp}</strong></span>
@@ -548,6 +612,39 @@ export const BranchManager: React.FC = () => {
                         <div className="flex items-center space-x-1">
                           <Smartphone className="w-3.5 h-3.5 text-red-500" />
                           <span>Airtel Till: <strong>{branch.airtelMerchantNumber}</strong></span>
+                        </div>
+
+                        {/* Portal Password Badge */}
+                        <div className="flex items-center space-x-1.5 px-2 py-0.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-md">
+                          <Lock className="w-3 h-3 text-blue-600 shrink-0" />
+                          <span className="font-semibold text-[11px]">Portal PIN:</span>
+                          <span className="font-mono text-xs font-bold text-blue-900">
+                            {revealedPasswords[branch.id] ? (branch.password || '123456') : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility(branch.id)}
+                            className="text-blue-600 hover:text-blue-900 p-0.5 ml-1"
+                            title={revealedPasswords[branch.id] ? 'Hide Password' : 'Show Password'}
+                          >
+                            {revealedPasswords[branch.id] ? (
+                              <EyeOff className="w-3 h-3" />
+                            ) : (
+                              <Eye className="w-3 h-3" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPassword(branch.id, branch.password || '123456')}
+                            className="text-blue-600 hover:text-blue-900 p-0.5"
+                            title="Copy Password"
+                          >
+                            {copiedBranchId === branch.id ? (
+                              <Check className="w-3 h-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>

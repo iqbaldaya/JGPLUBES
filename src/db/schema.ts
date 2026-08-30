@@ -45,6 +45,7 @@ export const branches = pgTable(
     airtelMerchantNumber: text('airtel_merchant_number').notNull(),
     status: text('status').default('ACTIVE').notNull(), // 'ACTIVE' | 'INACTIVE'
     targetMonthlySales: doublePrecision('target_monthly_sales').default(0).notNull(),
+    password: text('password'),
     createdAt: text('created_at').notNull(),
   },
   (table) => ({

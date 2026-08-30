@@ -12,6 +12,7 @@ export const INITIAL_BRANCHES: Branch[] = [
     airtelMerchantNumber: 'AM-LUS-8821',
     status: 'ACTIVE',
     targetMonthlySales: 120000,
+    password: 'lusaka123',
     createdAt: '2025-01-10',
   },
   {
@@ -25,6 +26,7 @@ export const INITIAL_BRANCHES: Branch[] = [
     airtelMerchantNumber: 'AM-KTW-4412',
     status: 'ACTIVE',
     targetMonthlySales: 95000,
+    password: 'kitwe123',
     createdAt: '2025-01-15',
   },
   {
@@ -38,6 +40,7 @@ export const INITIAL_BRANCHES: Branch[] = [
     airtelMerchantNumber: 'AM-NDL-9903',
     status: 'ACTIVE',
     targetMonthlySales: 85000,
+    password: 'ndola123',
     createdAt: '2025-02-01',
   },
   {
@@ -51,6 +54,7 @@ export const INITIAL_BRANCHES: Branch[] = [
     airtelMerchantNumber: 'AM-LIV-5519',
     status: 'ACTIVE',
     targetMonthlySales: 60000,
+    password: 'livingstone123',
     createdAt: '2025-03-01',
   },
 ];

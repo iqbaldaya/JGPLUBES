@@ -13,6 +13,7 @@ export interface Branch {
   airtelMerchantNumber: string;
   status: 'ACTIVE' | 'INACTIVE';
   targetMonthlySales: number;
+  password?: string; // Branch portal login password
   createdAt: string;
 }
 

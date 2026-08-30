@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Settings,
   Database,
+  LogOut,
 } from 'lucide-react';
 
 interface NavigationTabsProps {
@@ -62,6 +63,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     pendingCashMovementCount,
     unpostedDailySalesCount,
     isDbConnected,
+    logout,
   } = useApp();
 
   // In transit transfers count
@@ -338,8 +340,22 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
       </div>
 
       {/* Sidebar Footer System Context */}
-      <div className="p-3 border-t border-slate-700/80 bg-[#0F172A]/70 text-[11px] text-slate-400">
-        <div className="flex items-center justify-between">
+      <div className="p-3 border-t border-slate-700/80 bg-[#0F172A]/70 text-[11px] text-slate-400 space-y-2">
+        <button
+          id="btn-sidebar-logout"
+          type="button"
+          onClick={logout}
+          className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-red-500/20 text-slate-300 hover:text-red-300 border border-slate-700 hover:border-red-500/40 transition text-xs font-semibold"
+          title="Lock portal and return to login screen"
+        >
+          <div className="flex items-center space-x-2">
+            <LogOut className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
+            <span>Lock / Switch User</span>
+          </div>
+          <span className="text-[10px] text-slate-500 font-mono">Sign Out</span>
+        </button>
+
+        <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-1.5">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -352,9 +368,6 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
           </div>
           <span className="text-[10px] text-slate-500 font-mono">v2.4 Pro</span>
         </div>
-        <p className="text-[10px] text-slate-500 mt-1 truncate">
-          {branches.length} Sites • Multi-Device Real-Time Sync
-        </p>
       </div>
     </div>
   );

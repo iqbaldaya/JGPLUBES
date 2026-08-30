@@ -28,12 +28,18 @@ import { CashReconciliationView } from './components/reconciliation/CashReconcil
 import { StockReconciliation } from './components/stock/StockReconciliation';
 import { BranchOverview } from './components/branch/BranchOverview';
 import { BranchDayToDaySalesSection } from './components/branch/BranchDayToDaySalesSection';
+import { LoginPage } from './components/auth/LoginPage';
 
 const MainContent: React.FC = () => {
-  const { role, currentBranchId } = useApp();
+  const { role, currentBranchId, isAuthenticated } = useApp();
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [salesSubView, setSalesSubView] = useState<'FORM' | 'LOGS'>('FORM');
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+
+  // If not authenticated, display the Login Page
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   // Reset default tab when switching roles
   useEffect(() => {

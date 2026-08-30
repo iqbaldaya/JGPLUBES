@@ -16,6 +16,7 @@ import {
   X,
   Copy,
   Check,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -40,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
     dbSyncError,
     lastDbSyncTime,
     manualSyncWithDatabase,
+    logout,
   } = useApp();
 
   const [isDbModalOpen, setIsDbModalOpen] = useState(false);
@@ -224,6 +226,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <Settings className="w-4 h-4" />
               </button>
             )}
+
+            {/* Lock / Sign Out Button */}
+            <button
+              id="btn-header-logout"
+              onClick={logout}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition"
+              title="Lock Portal / Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
 
             {/* Quick Action: Log Sale Button */}
             <button

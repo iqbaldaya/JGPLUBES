@@ -50,6 +50,11 @@ interface AppContextType {
   currentBranchId: string | null;
   currentBranch: Branch | null;
   setRole: (role: UserRole, branchId?: string | null) => void;
+  isAuthenticated: boolean;
+  ownerPassword: string;
+  setOwnerPassword: (newPassword: string) => void;
+  login: (role: UserRole, branchId: string | null, password: string) => { success: boolean; message?: string };
+  logout: () => void;
 
   // Master Entities
   branches: Branch[];
@@ -333,6 +338,19 @@ const LOCAL_STORAGE_KEY = 'lubes_lpg_enterprise_data_v1';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Load initial state from LocalStorage if available
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem(`${LOCAL_STORAGE_KEY}_authenticated`) === 'true';
+  });
+
+  const [ownerPassword, setOwnerPasswordState] = useState<string>(() => {
+    return localStorage.getItem(`${LOCAL_STORAGE_KEY}_owner_password`) || 'admin123';
+  });
+
+  const setOwnerPassword = (newPassword: string) => {
+    setOwnerPasswordState(newPassword);
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_owner_password`, newPassword);
+  };
+
   const [role, setRoleState] = useState<UserRole>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_role`);
     return saved === 'BRANCH_MANAGER' ? 'BRANCH_MANAGER' : 'OWNER';
@@ -344,7 +362,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [branches, setBranches] = useState<Branch[]>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_branches`);
-    return saved ? JSON.parse(saved) : INITIAL_BRANCHES;
+    if (saved) {
+      try {
+        const parsed: Branch[] = JSON.parse(saved);
+        return parsed.map((b) => {
+          if (!b.password) {
+            const initMatch = INITIAL_BRANCHES.find((ib) => ib.id === b.id);
+            return {
+              ...b,
+              password: initMatch?.password || '123456',
+            };
+          }
+          return b;
+        });
+      } catch {
+        return INITIAL_BRANCHES;
+      }
+    }
+    return INITIAL_BRANCHES;
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
@@ -591,13 +626,80 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem(`${LOCAL_STORAGE_KEY}_stock_transfers`, JSON.stringify(stockTransfers));
   }, [stockTransfers]);
 
+  // Login authentication handler
+  const login = (
+    selectedRole: UserRole,
+    selectedBranchId: string | null,
+    enteredPassword: string
+  ): { success: boolean; message?: string } => {
+    if (!enteredPassword || !enteredPassword.trim()) {
+      return { success: false, message: 'Please enter your login password.' };
+    }
+
+    const trimmedPassword = enteredPassword.trim();
+
+    if (selectedRole === 'OWNER') {
+      const activeOwnerPass = ownerPassword || 'admin123';
+      if (trimmedPassword !== activeOwnerPass) {
+        return {
+          success: false,
+          message: 'Invalid Owner HQ master password. Please verify your credentials and try again.',
+        };
+      }
+      setRoleState('OWNER');
+      setCurrentBranchIdState(null);
+      setIsAuthenticated(true);
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_authenticated`, 'true');
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_role`, 'OWNER');
+      return { success: true };
+    } else {
+      // BRANCH_MANAGER
+      if (!selectedBranchId) {
+        return { success: false, message: 'Please select a branch location from the dropdown.' };
+      }
+      const branch = branches.find((b) => b.id === selectedBranchId);
+      if (!branch) {
+        return { success: false, message: 'Selected branch location could not be found.' };
+      }
+      if (branch.status === 'INACTIVE') {
+        return {
+          success: false,
+          message: `Branch "${branch.name}" is currently marked as INACTIVE. Access to this portal is suspended.`,
+        };
+      }
+      const branchPass = branch.password || '123456';
+      if (trimmedPassword !== branchPass) {
+        return {
+          success: false,
+          message: `Incorrect password for ${branch.name} (${branch.code}). Please check your password or contact the business owner.`,
+        };
+      }
+      setRoleState('BRANCH_MANAGER');
+      setCurrentBranchIdState(selectedBranchId);
+      setIsAuthenticated(true);
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_authenticated`, 'true');
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_role`, 'BRANCH_MANAGER');
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_branchId`, selectedBranchId);
+      return { success: true };
+    }
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem(`${LOCAL_STORAGE_KEY}_authenticated`);
+  };
+
   // Set Role and Branch
   const setRole = (newRole: UserRole, branchId?: string | null) => {
     setRoleState(newRole);
     if (newRole === 'OWNER') {
       setCurrentBranchIdState(branchId || null);
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_role`, 'OWNER');
     } else {
-      setCurrentBranchIdState(branchId || branches[0]?.id || 'branch-1');
+      const bId = branchId || branches[0]?.id || 'branch-1';
+      setCurrentBranchIdState(bId);
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_role`, 'BRANCH_MANAGER');
+      localStorage.setItem(`${LOCAL_STORAGE_KEY}_branchId`, bId);
     }
   };
 
@@ -3886,6 +3988,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         currentBranchId,
         currentBranch,
         setRole,
+        isAuthenticated,
+        ownerPassword,
+        setOwnerPassword,
+        login,
+        logout,
         branches,
         products,
         branchStocks,
