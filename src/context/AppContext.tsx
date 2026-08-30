@@ -78,6 +78,7 @@ interface AppContextType {
   // Branch CRUD & Operations
   addBranch: (branchData: Omit<Branch, 'id' | 'createdAt'>) => Branch;
   updateBranch: (branchId: string, updates: Partial<Branch>) => void;
+  deleteBranch: (branchId: string) => { success: boolean; message?: string };
 
   // Product Catalog CRUD (Owner only)
   addProduct: (productData: Omit<Product, 'id'>, initialStocks?: { [branchId: string]: number }) => Product;
@@ -688,6 +689,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       prev.map((b) => (b.id === branchId ? { ...b, ...updates } : b))
     );
     api.updateBranch(branchId, updates).catch(console.error);
+  };
+
+  const deleteBranch = (branchId: string): { success: boolean; message?: string } => {
+    // Check if branch exists
+    const targetBranch = branches.find((b) => b.id === branchId);
+    if (!targetBranch) {
+      return { success: false, message: 'Branch location not found.' };
+    }
+
+    // Guard against deleting when only 1 branch remains
+    if (branches.length <= 1) {
+      return {
+        success: false,
+        message: 'Cannot delete the only remaining branch. At least one operational branch site is required.',
+      };
+    }
+
+    // Clean up local state
+    setBranches((prev) => prev.filter((b) => b.id !== branchId));
+    setBranchStocks((prev) => prev.filter((s) => s.branchId !== branchId));
+    setDailySales((prev) => prev.filter((s) => s.branchId !== branchId));
+    setCashMovements((prev) => prev.filter((m) => m.branchId !== branchId));
+    setAirtelRecords((prev) => prev.filter((r) => r.branchId !== branchId));
+    setAirtelMoneyRecords((prev) => prev.filter((r) => r.branchId !== branchId));
+    setStockReconciliations((prev) => prev.filter((r) => r.branchId !== branchId));
+    setStockTransfers((prev) =>
+      prev.filter((t) => t.sourceBranchId !== branchId && t.destinationBranchId !== branchId)
+    );
+
+    // If current selected branch was deleted, fall back to another available branch
+    if (currentBranchId === branchId) {
+      const remainingBranch = branches.find((b) => b.id !== branchId);
+      setCurrentBranchIdState(remainingBranch?.id || null);
+    }
+
+    // Persist delete to backend database
+    api.deleteBranch(branchId).catch(console.error);
+
+    return {
+      success: true,
+      message: `Branch "${targetBranch.name}" (${targetBranch.code}) has been permanently deleted.`,
+    };
   };
 
   // Product CRUD
@@ -3867,6 +3910,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         unpostedDailySalesCount,
         addBranch,
         updateBranch,
+        deleteBranch,
         addProduct,
         updateProduct,
         deleteProduct,

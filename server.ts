@@ -7,6 +7,7 @@ import {
   getAllBranches,
   createBranch,
   updateBranch,
+  deleteBranch,
   getAllProducts,
   createProduct,
   updateProduct,
@@ -173,6 +174,15 @@ app.post('/api/branches', async (req, res) => {
 app.patch('/api/branches/:id', async (req, res) => {
   try {
     const data = await updateBranch(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/branches/:id', async (req, res) => {
+  try {
+    const data = await deleteBranch(req.params.id);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -5,6 +5,7 @@ import {
   Building2,
   Plus,
   Edit2,
+  Trash2,
   Check,
   X,
   Phone,
@@ -14,13 +15,15 @@ import {
   Smartphone,
   ShieldCheck,
   AlertTriangle,
+  Layers,
 } from 'lucide-react';
 
 export const BranchManager: React.FC = () => {
-  const { branches, addBranch, updateBranch, lowStockAlerts, dailySales } = useApp();
+  const { branches, addBranch, updateBranch, deleteBranch, lowStockAlerts, dailySales, branchStocks } = useApp();
 
   const [isAddingBranch, setIsAddingBranch] = useState(false);
   const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
+  const [branchToDelete, setBranchToDelete] = useState<Branch | null>(null);
 
   // New Branch Form State
   const [newBranchData, setNewBranchData] = useState({
@@ -144,6 +147,18 @@ export const BranchManager: React.FC = () => {
     });
     setSuccessMsg('New branch successfully created and added to the network!');
     setTimeout(() => setSuccessMsg(null), 3500);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!branchToDelete) return;
+    const res = deleteBranch(branchToDelete.id);
+    if (res.success) {
+      setSuccessMsg(res.message || 'Branch deleted successfully.');
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } else {
+      setErrorMsg(res.message || 'Failed to delete branch.');
+    }
+    setBranchToDelete(null);
   };
 
   return (
@@ -408,6 +423,16 @@ export const BranchManager: React.FC = () => {
                           <Check className="w-3.5 h-3.5" />
                           <span>Save Changes</span>
                         </button>
+                        <button
+                          id={`btn-delete-editing-branch-${branch.id}`}
+                          type="button"
+                          onClick={() => setBranchToDelete(branch)}
+                          className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded-lg text-xs font-bold flex items-center space-x-1"
+                          title="Delete this branch"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                          <span>Delete Branch</span>
+                        </button>
                       </div>
                     </div>
 
@@ -548,6 +573,15 @@ export const BranchManager: React.FC = () => {
                         <Edit2 className="w-3.5 h-3.5 text-stone-500" />
                         <span>Edit Site &amp; Champ</span>
                       </button>
+
+                      <button
+                        id={`btn-delete-branch-${branch.id}`}
+                        onClick={() => setBranchToDelete(branch)}
+                        className="p-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-semibold text-xs flex items-center space-x-1 transition shadow-xs"
+                        title={`Delete ${branch.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -556,6 +590,65 @@ export const BranchManager: React.FC = () => {
           })}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {branchToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border border-red-200 overflow-hidden">
+            <div className="px-6 py-4 bg-red-600 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-5 h-5 text-white" />
+                <h3 className="font-bold text-base">Delete Branch Location</h3>
+              </div>
+              <button
+                onClick={() => setBranchToDelete(null)}
+                className="text-red-100 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-sm text-stone-700">
+              <p>
+                Are you sure you want to permanently delete branch{' '}
+                <strong className="text-stone-900 font-bold">{branchToDelete.name}</strong> (
+                <span className="font-mono font-bold text-red-600">{branchToDelete.code}</span>)?
+              </p>
+
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 space-y-1.5">
+                <div className="font-bold flex items-center space-x-1.5 text-red-900">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Permanent System Action Warning:</span>
+                </div>
+                <ul className="list-disc list-inside space-y-0.5 text-red-700">
+                  <li>Branch stock levels and active warehouse mappings will be removed.</li>
+                  <li>Branch portal and manager access for this site will be deactivated.</li>
+                  <li>At least 1 branch must always remain in the system.</li>
+                </ul>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setBranchToDelete(null)}
+                  className="px-4 py-2 border border-stone-300 text-stone-700 rounded-lg hover:bg-stone-100 font-medium text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="btn-confirm-delete-branch"
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow text-xs flex items-center space-x-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Yes, Delete Branch</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

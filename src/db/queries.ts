@@ -78,6 +78,16 @@ export async function updateBranch(branchId: string, updates: Partial<typeof bra
   }
 }
 
+export async function deleteBranch(branchId: string) {
+  try {
+    await db.delete(branches).where(eq(branches.id, branchId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteBranch:', error);
+    throw new Error('Failed to delete branch', { cause: error });
+  }
+}
+
 // --- PRODUCTS ---
 export async function getAllProducts() {
   try {

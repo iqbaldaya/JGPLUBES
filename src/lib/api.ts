@@ -23,6 +23,10 @@ export const api = {
     });
     return res.json();
   },
+  async deleteBranch(id: string) {
+    const res = await fetch(`/api/branches/${id}`, { method: 'DELETE' });
+    return res.json();
+  },
 
   // Products
   async createProduct(data: any) {
