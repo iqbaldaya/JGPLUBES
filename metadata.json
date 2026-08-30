@@ -1,5 +1,5 @@
 {
-  "name": "Lubes & LPG Enterprise Manager",
+  "name": "JGP Lubes",
   "description": "Multi-site retail and distribution management system for Motor Oils and LPG with sales, stock reconciliation, cash and Airtel Money tracking, supplier accounts, and quarterly PDF reports.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

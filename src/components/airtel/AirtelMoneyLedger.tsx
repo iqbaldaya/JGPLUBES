@@ -24,17 +24,14 @@ interface AirtelMoneyLedgerProps {
 export const AirtelMoneyLedger: React.FC<AirtelMoneyLedgerProps> = ({ branchIdFilter }) => {
   const {
     airtelMoneyRecords,
-    airtelRecords,
     branches,
     addAirtelMoneyRecord,
-    addAirtelRecord,
     verifyAirtelMoneyRecord,
-    verifyAirtelRecord,
   } = useApp();
 
-  const allRecords = airtelMoneyRecords || airtelRecords || [];
-  const addFn = addAirtelMoneyRecord || addAirtelRecord;
-  const verifyFn = verifyAirtelMoneyRecord || verifyAirtelRecord;
+  const allRecords = airtelMoneyRecords || [];
+  const addFn = addAirtelMoneyRecord;
+  const verifyFn = verifyAirtelMoneyRecord;
 
   const [selectedBranch, setSelectedBranch] = useState<string>(branchIdFilter || 'ALL');
   const [searchQuery, setSearchQuery] = useState('');

@@ -29,24 +29,20 @@ import { StockReconciliation } from './components/stock/StockReconciliation';
 import { BranchOverview } from './components/branch/BranchOverview';
 import { BranchDayToDaySalesSection } from './components/branch/BranchDayToDaySalesSection';
 import { LoginPage } from './components/auth/LoginPage';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
-const MainContent: React.FC = () => {
-  const { role, currentBranchId, isAuthenticated } = useApp();
-  const [activeTab, setActiveTab] = useState<string>('overview');
+const AuthenticatedApp: React.FC = () => {
+  const { role, currentBranchId } = useApp();
+  const [activeTab, setActiveTab] = useState<string>(() => (role === 'OWNER' ? 'overview' : 'branch-pos'));
   const [salesSubView, setSalesSubView] = useState<'FORM' | 'LOGS'>('FORM');
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
-
-  // If not authenticated, display the Login Page
-  if (!isAuthenticated) {
-    return <LoginPage />;
-  }
 
   // Reset default tab when switching roles
   useEffect(() => {
     if (role === 'OWNER') {
-      setActiveTab('overview');
+      setActiveTab((prev) => (prev.startsWith('branch-') && prev !== 'branch-portals' && prev !== 'branch-mgr' ? 'overview' : prev));
     } else {
-      setActiveTab('branch-pos');
+      setActiveTab((prev) => (prev === 'overview' || prev === 'branch-portals' || prev === 'branch-mgr' ? 'branch-pos' : prev));
     }
   }, [role, currentBranchId]);
 
@@ -257,10 +253,22 @@ const MainContent: React.FC = () => {
   );
 };
 
+const MainContent: React.FC = () => {
+  const { isAuthenticated } = useApp();
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  return <AuthenticatedApp />;
+};
+
 export default function App() {
   return (
-    <AppProvider>
-      <MainContent />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <MainContent />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

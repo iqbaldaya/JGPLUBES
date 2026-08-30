@@ -207,11 +207,11 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
           <div>
             <div className="flex items-center space-x-1.5">
               <span className="font-bold tracking-tight text-base text-white">
-                PETROLINK <span className="text-blue-400">PRO</span>
+                JGP <span className="text-blue-400">LUBES</span>
               </span>
             </div>
             <p className="text-[9px] uppercase tracking-widest text-slate-400 font-semibold">
-              Lubes &amp; LPG ERP
+              Lubes &amp; LPG Enterprise
             </p>
           </div>
         </div>

@@ -9,6 +9,8 @@ export interface Branch {
   lubesChamp: string; // The branch champion/manager
   phone: string;
   location: string;
+  city?: string;
+  address?: string;
   openingCashFloat: number;
   airtelMerchantNumber: string;
   status: 'ACTIVE' | 'INACTIVE';
@@ -312,6 +314,7 @@ export interface Debtor {
   phone: string;
   email?: string;
   address?: string;
+  paymentTerms?: string;
   creditLimit: number;
   totalCreditSales: number;
   totalPaid: number;

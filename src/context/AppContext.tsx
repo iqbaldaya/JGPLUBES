@@ -964,7 +964,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             };
           } else {
             updated.push({
-              id: `stk-${sale.branchId}-${item.productId}`,
               branchId: sale.branchId,
               productId: item.productId,
               quantity: 0,

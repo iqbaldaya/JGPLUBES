@@ -135,7 +135,7 @@ export const DebtorsSection: React.FC<DebtorsSectionProps> = ({
       } else if (statusFilter === 'CLEARED') {
         matchesStatus = debtor.outstandingBalance === 0;
       } else if (statusFilter === 'OVERDUE') {
-        matchesStatus = debtor.status === 'OVERDUE' || debtor.outstandingBalance > debtor.creditLimit;
+        matchesStatus = (debtor.status as string) === 'OVERDUE' || debtor.outstandingBalance > debtor.creditLimit;
       }
 
       return matchesSearch && matchesStatus;

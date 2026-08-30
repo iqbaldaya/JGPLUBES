@@ -593,7 +593,7 @@ export const BusinessNetValueSection: React.FC<BusinessNetValueSectionProps> = (
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-bold text-slate-800 text-xs block">{site.branchName}</span>
-                          <span className="text-[10px] font-mono text-slate-400">Code: {site.code}</span>
+                          <span className="text-[10px] font-mono text-slate-400">Code: {site.branchCode}</span>
                         </div>
                         <span className="text-[10px] font-semibold text-slate-500">
                           {site.lubesLiters.toLocaleString()} L
@@ -661,7 +661,7 @@ export const BusinessNetValueSection: React.FC<BusinessNetValueSectionProps> = (
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="font-bold text-slate-800 text-xs block">{site.branchName}</span>
-                          <span className="text-[10px] font-mono text-slate-400">Code: {site.code}</span>
+                          <span className="text-[10px] font-mono text-slate-400">Code: {site.branchCode}</span>
                         </div>
                         <span className="text-[10px] font-semibold text-slate-500">
                           {site.lpgKg.toLocaleString()} Kg

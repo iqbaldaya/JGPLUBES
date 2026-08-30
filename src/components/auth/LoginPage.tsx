@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showCredentialsHelper, setShowCredentialsHelper] = useState<boolean>(false);
 
-  // Auto-select first active branch if switching to BRANCH_MANAGER
+  // Auto-select first active branch if switching to BRANCH_MANAGER and none selected
   useEffect(() => {
     if (selectedRole === 'BRANCH_MANAGER' && !selectedBranchId && branches.length > 0) {
       const firstActive = branches.find((b) => b.status === 'ACTIVE') || branches[0];
@@ -39,29 +39,41 @@ export const LoginPage: React.FC = () => {
         setSelectedBranchId(firstActive.id);
       }
     }
+  }, [selectedRole, selectedBranchId, branches]);
+
+  const handleRoleChange = (newRole: UserRole) => {
+    setSelectedRole(newRole);
     setErrorMessage(null);
     setPassword('');
-  }, [selectedRole, branches]);
+    if (newRole === 'BRANCH_MANAGER' && !selectedBranchId && branches.length > 0) {
+      const firstActive = branches.find((b) => b.status === 'ACTIVE') || branches[0];
+      if (firstActive) {
+        setSelectedBranchId(firstActive.id);
+      }
+    }
+  };
+
+  const handleBranchChange = (newBranchId: string) => {
+    setSelectedBranchId(newBranchId);
+    setErrorMessage(null);
+    setPassword('');
+  };
 
   const selectedBranch = branches.find((b) => b.id === selectedBranchId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setIsLoading(true);
 
-    setTimeout(() => {
-      const res = login(
-        selectedRole,
-        selectedRole === 'BRANCH_MANAGER' ? selectedBranchId : null,
-        password
-      );
+    const res = login(
+      selectedRole,
+      selectedRole === 'BRANCH_MANAGER' ? selectedBranchId : null,
+      password
+    );
 
-      setIsLoading(false);
-      if (!res.success) {
-        setErrorMessage(res.message || 'Login failed. Please check your credentials.');
-      }
-    }, 250);
+    if (!res.success) {
+      setErrorMessage(res.message || 'Login failed. Please check your credentials.');
+    }
   };
 
   const handleQuickFillDemo = (roleToSet: UserRole, branchIdToSet?: string) => {
@@ -96,7 +108,7 @@ export const LoginPage: React.FC = () => {
             <div className="text-left">
               <div className="flex items-center space-x-1.5">
                 <span className="font-black tracking-tight text-lg text-white">
-                  PETROLINK <span className="text-blue-400">PRO</span>
+                  JGP <span className="text-blue-400">LUBES</span>
                 </span>
               </div>
               <p className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">
@@ -150,7 +162,7 @@ export const LoginPage: React.FC = () => {
                 <select
                   id="select-login-role"
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+                  onChange={(e) => handleRoleChange(e.target.value as UserRole)}
                   className="block w-full pl-10 pr-10 py-2.5 bg-slate-800/90 border border-slate-700 rounded-xl text-white text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:border-slate-600 transition"
                 >
                   <option value="OWNER">Executive Owner HQ (All Sites &amp; Treasury)</option>
@@ -183,7 +195,7 @@ export const LoginPage: React.FC = () => {
                   <select
                     id="select-login-branch"
                     value={selectedBranchId}
-                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    onChange={(e) => handleBranchChange(e.target.value)}
                     required={selectedRole === 'BRANCH_MANAGER'}
                     className="block w-full px-3.5 py-2.5 bg-slate-800/90 border border-amber-500/40 rounded-xl text-white text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:border-amber-500 appearance-none cursor-pointer hover:border-amber-500/60 transition"
                   >

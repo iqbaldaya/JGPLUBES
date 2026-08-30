@@ -57,7 +57,7 @@ export const BranchOverview: React.FC<BranchOverviewProps> = ({ branchId, onNavi
   // Financial aggregates
   const totalSales = branchSales.reduce((sum, s) => sum + s.totalSalesAmount, 0);
   const totalProfit = branchSales.reduce((sum, s) => sum + s.grossProfit, 0);
-  const totalAirtelDeposits = branchAirtel.reduce((sum, r) => sum + r.amount, 0);
+  const totalAirtelDeposits = branchAirtel.reduce((sum, r) => sum + ((r as any).amount || (r as any).debit || 0), 0);
   const totalVariance = branchSales.reduce((sum, s) => sum + s.cashVariance, 0);
 
   // Volume metrics

@@ -44,7 +44,6 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
     dailySales,
     branches,
     currentBranch,
-    updateDailySaleStatus,
     updateDailySale,
     cashMovements,
     ownerTreasury,
@@ -250,7 +249,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
     const computedVariance = actual - expected;
     const computedClosing = opening + actual - airtel - petty;
 
-    const res = updateDailySale(editingSale.id, {
+    updateDailySale(editingSale.id, {
       actualCashReceived: actual,
       expectedCashFromSales: expected,
       cashVariance: computedVariance,
@@ -263,11 +262,6 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
       notes: editNotes.trim(),
       status: editStatus,
     });
-
-    if (res && !res.success) {
-      setEditShiftError(res.message || 'Failed to update shift reconciliation.');
-      return;
-    }
 
     triggerToast(`✓ Shift cash reconciliation for ${editingSale.branchName} (${editingSale.date}) updated successfully.`);
     setEditingSale(null);
@@ -1000,7 +994,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
                           <div className="flex items-center justify-center space-x-1.5">
                             {sale.status === 'DISCREPANCY_FLAGGED' && (
                               <button
-                                onClick={() => updateDailySaleStatus(sale.id, 'VERIFIED')}
+                                onClick={() => updateDailySale(sale.id, { status: 'VERIFIED' })}
                                 title="Mark Discrepancy as Resolved"
                                 className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold transition shadow-2xs cursor-pointer"
                               >
