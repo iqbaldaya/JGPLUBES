@@ -295,7 +295,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       },
       creditDebtorId: creditSales > 0 ? selectedDebtorId : undefined,
       creditDebtorName: creditSales > 0 ? selectedDebtor?.name : undefined,
-      0: 0,
+      openingFloat: 0,
       expectedCashFromSales: 0,
       actualCashReceived,
       cashVariance,
