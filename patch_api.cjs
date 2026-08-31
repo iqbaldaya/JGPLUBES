@@ -1,20 +1,26 @@
 const fs = require('fs');
 let code = fs.readFileSync('src/lib/api.ts', 'utf-8');
 
-if (!code.includes('api.expenses =')) {
-  code = code.replace('bootstrap: async () => {', `
-  getExpenses: async () => {
-    const res = await fetch('/api/expenses');
-    return res.json();
-  },
-  createExpense: async (data: any) => {
-    const res = await fetch('/api/expenses', {
-      method: 'POST',
+const target = "  async createAirtelMoneyRecord(data: any) {";
+
+const addition = `  async updateAirtelMoneyRecord(id: string, updates: any) {
+    const res = await fetch(\`/api/airtel-money-records/\${id}\`, {
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(updates),
     });
     return res.json();
   },
-  bootstrap: async () => {`);
-  fs.writeFileSync('src/lib/api.ts', code);
-}
+
+  async deleteAirtelMoneyRecord(id: string) {
+    const res = await fetch(\`/api/airtel-money-records/\${id}\`, { method: 'DELETE' });
+    return res.json();
+  },
+
+`;
+
+code = code.replace(target, addition + target);
+
+// Also we need to make sure deleteAirtelMoneyRecord is used in AppContext.tsx
+
+fs.writeFileSync('src/lib/api.ts', code);

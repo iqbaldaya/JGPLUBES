@@ -2379,16 +2379,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setAirtelMoneyRecords((prev) =>
       prev.map((r) => (r.id === recordId ? { ...r, verified: true } : r))
     );
+    api.updateAirtelMoneyRecord(recordId, { verified: true }).catch(console.error);
   };
 
   const deleteAirtelMoneyRecord = (recordId: string) => {
     setAirtelMoneyRecords((prev) => prev.filter((r) => r.id !== recordId));
+    api.deleteAirtelMoneyRecord(recordId).catch(console.error);
   };
 
   const updateAirtelMoneyRecord = (recordId: string, updates: Partial<AirtelMoneyRecord>) => {
     setAirtelMoneyRecords((prev) =>
       prev.map((r) => (r.id === recordId ? { ...r, ...updates } : r))
     );
+    api.updateAirtelMoneyRecord(recordId, updates).catch(console.error);
   };
 
   // Recalculation helpers for ledger running balances

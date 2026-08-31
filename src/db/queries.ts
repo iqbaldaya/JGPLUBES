@@ -614,6 +614,26 @@ export async function deleteAirtelRecord(recordId: string) {
   }
 }
 
+export async function updateAirtelMoneyRecord(recordId: string, updates: any) {
+  try {
+    const res = await db.update(airtelMoneyRecords).set(updates).where(eq(airtelMoneyRecords.id, recordId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for updateAirtelMoneyRecord:', error);
+    throw new Error('Failed to update airtel money record', { cause: error });
+  }
+}
+
+export async function deleteAirtelMoneyRecord(recordId: string) {
+  try {
+    await db.delete(airtelMoneyRecords).where(eq(airtelMoneyRecords.id, recordId));
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for deleteAirtelMoneyRecord:', error);
+    throw new Error('Failed to delete airtel money record', { cause: error });
+  }
+}
+
 export async function getAllAirtelMoneyRecords() {
   try {
     return await db.select().from(airtelMoneyRecords).orderBy(desc(airtelMoneyRecords.date), desc(airtelMoneyRecords.createdAt));

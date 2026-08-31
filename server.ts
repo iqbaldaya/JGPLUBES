@@ -60,6 +60,8 @@ import {
   deleteAirtelRecord,
   getAllAirtelMoneyRecords,
   createAirtelMoneyRecord,
+  updateAirtelMoneyRecord,
+  deleteAirtelMoneyRecord,
   getAllStockTransfers,
   createStockTransfer,
   updateStockTransfer,
@@ -72,6 +74,15 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '10mb' }));
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+
 
 // 1. HEALTH & DATABASE STATUS ENDPOINTS
 app.get('/api/health', (req, res) => {
@@ -696,6 +707,24 @@ app.delete('/api/airtel-records/:id', async (req, res) => {
 app.get('/api/airtel-money-records', async (req, res) => {
   try {
     const data = await getAllAirtelMoneyRecords();
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/airtel-money-records/:id', async (req, res) => {
+  try {
+    const data = await updateAirtelMoneyRecord(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/airtel-money-records/:id', async (req, res) => {
+  try {
+    const data = await deleteAirtelMoneyRecord(req.params.id);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -16,7 +16,7 @@ export const api = {
   },
   async bootstrap() {
     try {
-      const res = await fetch('/api/bootstrap');
+      const res = await fetch('/api/bootstrap?t=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         return { connected: false, isConfigured: true, error: errData.error || 'Database unavailable' };
@@ -314,6 +314,20 @@ export const api = {
     const res = await fetch(`/api/airtel-records/${id}`, { method: 'DELETE' });
     return res.json();
   },
+  async updateAirtelMoneyRecord(id: string, updates: any) {
+    const res = await fetch(`/api/airtel-money-records/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    return res.json();
+  },
+
+  async deleteAirtelMoneyRecord(id: string) {
+    const res = await fetch(`/api/airtel-money-records/${id}`, { method: 'DELETE' });
+    return res.json();
+  },
+
   async createAirtelMoneyRecord(data: any) {
     const res = await fetch('/api/airtel-money-records', {
       method: 'POST',
