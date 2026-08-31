@@ -311,7 +311,29 @@ app.get('/api/daily-sales', async (req, res) => {
 
 app.post('/api/daily-sales', async (req, res) => {
   try {
-    const data = await createDailySale(req.body);
+    const sale = req.body;
+    const data = await createDailySale(sale);
+
+    // Auto-reduce branch stock in database for items sold
+    if (sale && Array.isArray(sale.items) && sale.items.length > 0 && sale.branchId) {
+      try {
+        const currentStocks = await getAllBranchStocks();
+        for (const item of sale.items) {
+          const qty = Number(item.quantity) || 0;
+          if (qty > 0 && item.productId) {
+            const existing = currentStocks.find(
+              (s) => s.branchId === sale.branchId && s.productId === item.productId
+            );
+            const currentQty = existing ? Number(existing.quantity) || 0 : 0;
+            const newQty = Math.max(0, currentQty - qty);
+            await upsertBranchStock(sale.branchId, item.productId, newQty);
+          }
+        }
+      } catch (stockErr) {
+        console.error('Failed to auto-reduce stock on sale post:', stockErr);
+      }
+    }
+
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -457,7 +479,29 @@ app.get('/api/supplier-transactions', async (req, res) => {
 
 app.post('/api/supplier-transactions', async (req, res) => {
   try {
-    const data = await createSupplierTransaction(req.body);
+    const tx = req.body;
+    const data = await createSupplierTransaction(tx);
+
+    // Auto-increase branch stock in database for supplier invoice items
+    if (tx && tx.type === 'INVOICE' && Array.isArray(tx.items) && tx.items.length > 0 && tx.branchId) {
+      try {
+        const currentStocks = await getAllBranchStocks();
+        for (const item of tx.items) {
+          const qty = Number(item.quantity) || 0;
+          if (qty > 0 && item.productId) {
+            const existing = currentStocks.find(
+              (s) => s.branchId === tx.branchId && s.productId === item.productId
+            );
+            const currentQty = existing ? Number(existing.quantity) || 0 : 0;
+            const newQty = currentQty + qty;
+            await upsertBranchStock(tx.branchId, item.productId, newQty);
+          }
+        }
+      } catch (stockErr) {
+        console.error('Failed to auto-increase stock on supplier invoice:', stockErr);
+      }
+    }
+
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

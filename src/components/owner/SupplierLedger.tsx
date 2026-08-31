@@ -239,12 +239,13 @@ export const SupplierLedger: React.FC = () => {
   const handleAddInvoiceItem = () => {
     const defaultProd = products[0];
     if (!defaultProd) return;
+    const newItem = { productId: defaultProd.id, quantity: 10, unitCost: Number(defaultProd.costPrice) || 0 };
+    const updated = [...newInvoiceData.items, newItem];
+    const total = updated.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
     setNewInvoiceData({
       ...newInvoiceData,
-      items: [
-        ...newInvoiceData.items,
-        { productId: defaultProd.id, quantity: 10, unitCost: defaultProd.costPrice },
-      ],
+      items: updated,
+      amount: total,
     });
   };
 
@@ -255,17 +256,17 @@ export const SupplierLedger: React.FC = () => {
       updated[index] = {
         ...updated[index],
         productId: value,
-        unitCost: prod ? prod.costPrice : updated[index].unitCost,
+        unitCost: prod ? Number(prod.costPrice) || 0 : updated[index].unitCost,
       };
     } else if (field === 'quantity') {
       updated[index] = {
         ...updated[index],
-        quantity: value === '' ? 0 : parseInt(value, 10) || 0,
+        quantity: value === '' ? 0 : Math.max(0, parseInt(value, 10) || 0),
       };
     } else if (field === 'unitCost') {
       updated[index] = {
         ...updated[index],
-        unitCost: value === '' ? 0 : parseFloat(value) || 0,
+        unitCost: value === '' ? 0 : Math.max(0, parseFloat(value) || 0),
       };
     } else {
       updated[index] = {
@@ -275,7 +276,7 @@ export const SupplierLedger: React.FC = () => {
     }
 
     // Recalculate total invoice amount
-    const total = updated.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitCost || 0), 0);
+    const total = updated.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
 
     setNewInvoiceData({
       ...newInvoiceData,
@@ -286,22 +287,29 @@ export const SupplierLedger: React.FC = () => {
 
   const handleRemoveInvoiceItem = (index: number) => {
     const updated = newInvoiceData.items.filter((_, i) => i !== index);
-    const total = updated.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+    const total = updated.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
     setNewInvoiceData({ ...newInvoiceData, items: updated, amount: total });
   };
 
   const handleOpenAddInvoice = (preSelectedSupplierId?: string) => {
     const targetSuppId = preSelectedSupplierId || (selectedSupplierId !== 'ALL' ? selectedSupplierId : suppliers[0]?.id || '');
+    const targetBranchId = (selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id) || branches[0]?.id || '';
+    const defaultProd = products[0];
+    const initialItems = defaultProd
+      ? [{ productId: defaultProd.id, quantity: 10, unitCost: Number(defaultProd.costPrice) || 0 }]
+      : [];
+    const initTotal = initialItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
+
     setNewInvoiceData({
       supplierId: targetSuppId,
-      branchId: branches[0]?.id || '',
+      branchId: targetBranchId,
       referenceNo: `INV-${Date.now().toString().slice(-5)}`,
       date: new Date().toISOString().split('T')[0],
       dueDate: '',
-      amount: 0,
+      amount: initTotal,
       notes: '',
       autoReplenishStock: true,
-      items: [],
+      items: initialItems,
     });
     setIsAddingInvoice(true);
   };

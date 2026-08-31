@@ -1003,15 +1003,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setBranchStocks((prev) => {
         const updated = [...prev];
         sale.items.forEach((item) => {
+          const soldQty = Number(item.quantity) || 0;
           const index = updated.findIndex(
             (s) => s.branchId === sale.branchId && s.productId === item.productId
           );
           if (index >= 0) {
+            const currentQty = Number(updated[index].quantity) || 0;
+            const newQty = Math.max(0, currentQty - soldQty);
             updated[index] = {
               ...updated[index],
-              quantity: Math.max(0, updated[index].quantity - item.quantity),
+              quantity: newQty,
               lastUpdated: sale.date,
             };
+            api.upsertStock(sale.branchId, item.productId, newQty).catch(console.error);
           } else {
             updated.push({
               branchId: sale.branchId,
@@ -1019,6 +1023,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               quantity: 0,
               lastUpdated: sale.date,
             });
+            api.upsertStock(sale.branchId, item.productId, 0).catch(console.error);
           }
         });
         return updated;
@@ -1198,6 +1203,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
 
       api.updateDailySale(existing.id, resultRecord).catch(console.error);
+
+      // Adjust branch stock for any item changes compared to previous saved version
+      if (recordData.items && recordData.items.length > 0) {
+        setBranchStocks((prev) => {
+          const updated = [...prev];
+          recordData.items.forEach((newItem) => {
+            const oldItem = existing.items?.find((i) => i.productId === newItem.productId);
+            const oldQty = oldItem ? Number(oldItem.quantity) || 0 : 0;
+            const newQty = Number(newItem.quantity) || 0;
+            const delta = newQty - oldQty; // positive means more items sold
+
+            const index = updated.findIndex(
+              (s) => s.branchId === recordData.branchId && s.productId === newItem.productId
+            );
+            if (index >= 0) {
+              const currentStock = Number(updated[index].quantity) || 0;
+              const updatedStock = Math.max(0, currentStock - delta);
+              updated[index] = {
+                ...updated[index],
+                quantity: updatedStock,
+                lastUpdated: recordData.date,
+              };
+              api.upsertStock(recordData.branchId, newItem.productId, updatedStock).catch(console.error);
+            } else if (newQty > 0) {
+              updated.push({
+                branchId: recordData.branchId,
+                productId: newItem.productId,
+                quantity: 0,
+                lastUpdated: recordData.date,
+              });
+              api.upsertStock(recordData.branchId, newItem.productId, 0).catch(console.error);
+            }
+          });
+          return updated;
+        });
+      }
     } else {
       const newId = recordData.id || `sale-${Date.now()}`;
       resultRecord = {
@@ -1210,6 +1251,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       setDailySales((prev) => [resultRecord, ...prev]);
       api.createDailySale(resultRecord).catch(console.error);
+
+      // Reduce branch stock for items sold in the new sale
+      if (resultRecord.items && resultRecord.items.length > 0) {
+        setBranchStocks((prev) => {
+          const updated = [...prev];
+          resultRecord.items.forEach((item) => {
+            const soldQty = Number(item.quantity) || 0;
+            if (soldQty <= 0) return;
+
+            const index = updated.findIndex(
+              (s) => s.branchId === resultRecord.branchId && s.productId === item.productId
+            );
+            if (index >= 0) {
+              const currentStock = Number(updated[index].quantity) || 0;
+              const newQty = Math.max(0, currentStock - soldQty);
+              updated[index] = {
+                ...updated[index],
+                quantity: newQty,
+                lastUpdated: resultRecord.date,
+              };
+              api.upsertStock(resultRecord.branchId, item.productId, newQty).catch(console.error);
+            } else {
+              updated.push({
+                branchId: resultRecord.branchId,
+                productId: item.productId,
+                quantity: 0,
+                lastUpdated: resultRecord.date,
+              });
+              api.upsertStock(resultRecord.branchId, item.productId, 0).catch(console.error);
+            }
+          });
+          return updated;
+        });
+      }
     }
 
     return resultRecord;
@@ -1377,27 +1452,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return { success: false, message: 'Sales record not found.' };
     }
 
-    // 1. Restore branch stock ONLY if it was already POSTED_APPROVED
-    if (sale.postingStatus === 'POSTED_APPROVED' && restoreStock && sale.items && sale.items.length > 0) {
+    // 1. Restore branch stock if items were sold
+    if (restoreStock && sale.items && sale.items.length > 0) {
       setBranchStocks((prev) => {
         const updated = [...prev];
         sale.items.forEach((item) => {
+          const qty = Number(item.quantity) || 0;
+          if (qty <= 0) return;
+
           const index = updated.findIndex(
             (s) => s.branchId === sale.branchId && s.productId === item.productId
           );
           if (index >= 0) {
+            const restoredQty = (Number(updated[index].quantity) || 0) + qty;
             updated[index] = {
               ...updated[index],
-              quantity: updated[index].quantity + item.quantity,
+              quantity: restoredQty,
               lastUpdated: new Date().toISOString().split('T')[0],
             };
+            api.upsertStock(sale.branchId, item.productId, restoredQty).catch(console.error);
           } else {
             updated.push({
               branchId: sale.branchId,
               productId: item.productId,
-              quantity: item.quantity,
+              quantity: qty,
               lastUpdated: new Date().toISOString().split('T')[0],
             });
+            api.upsertStock(sale.branchId, item.productId, qty).catch(console.error);
           }
         });
         return updated;

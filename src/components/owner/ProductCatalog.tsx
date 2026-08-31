@@ -103,14 +103,14 @@ export const ProductCatalog: React.FC = () => {
   // Helper to get total stock & per branch breakdown for a product
   const getProductStockInfo = (productId: string) => {
     const stockEntries = branchStocks.filter((s) => s.productId === productId);
-    const totalStock = stockEntries.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const totalStock = stockEntries.reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
     const branchBreakdown = branches.map((b) => {
       const entry = stockEntries.find((s) => s.branchId === b.id);
       return {
         branchId: b.id,
         branchName: b.name,
         branchCode: b.code,
-        quantity: entry ? entry.quantity : 0,
+        quantity: entry ? Number(entry.quantity) || 0 : 0,
       };
     });
 
