@@ -15,6 +15,7 @@ import { BusinessNetValueSection } from './components/owner/BusinessNetValueSect
 import { BankRecordsSection } from './components/owner/BankRecordsSection';
 import { CashRecordsSection } from './components/owner/CashRecordsSection';
 import { AirtelMoneyRecordsSection } from './components/owner/AirtelMoneyRecordsSection';
+import { AirtelMoneyLedger } from './components/airtel/AirtelMoneyLedger';
 import { DebtorsSection } from './components/owner/DebtorsSection';
 import ExpensesLedger from './components/owner/ExpensesLedger';
 import { TreasuryLedgersView } from './components/owner/TreasuryLedgersView';
@@ -200,7 +201,7 @@ const AuthenticatedApp: React.FC = () => {
           return <StockReconciliation branchIdFilter={currentBranchId} />;
 
         case 'branch-airtel':
-          return <AirtelMoneyRecordsSection onNavigateTab={setActiveTab} />;
+          return <AirtelMoneyLedger branchIdFilter={currentBranchId} />;
 
         default:
           return (

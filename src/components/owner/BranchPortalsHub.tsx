@@ -6,6 +6,7 @@ import { DailySalesForm } from '../sales/DailySalesForm';
 import { CashReconciliationView } from '../reconciliation/CashReconciliationView';
 import { StockReconciliation } from '../stock/StockReconciliation';
 import { AirtelMoneyLedger } from '../airtel/AirtelMoneyLedger';
+import { StockTransfersSection } from '../stock/StockTransfersSection';
 import {
   Building2,
   UserCheck,
@@ -28,9 +29,13 @@ import {
   CalendarDays,
   Droplets,
   Flame,
+  Truck,
+  ShoppingCart,
+  LayoutDashboard,
+  ClipboardList,
 } from 'lucide-react';
 
-type BranchPortalSection = 'OVERVIEW' | 'DAY_TO_DAY_SALES' | 'SALES_ENTRY' | 'CASH_RECON' | 'STOCK_RECON' | 'AIRTEL_LEDGER';
+type BranchPortalSection = 'OVERVIEW' | 'DAY_TO_DAY_SALES' | 'SALES_ENTRY' | 'STOCK_TRANSFERS' | 'CASH_RECON' | 'STOCK_RECON' | 'AIRTEL_LEDGER';
 
 export const BranchPortalsHub: React.FC = () => {
   const {
@@ -274,6 +279,7 @@ export const BranchPortalsHub: React.FC = () => {
 
         {/* Section Navigation Tabs */}
         <div className="flex border-b border-stone-200 bg-stone-50 overflow-x-auto">
+          {/* Site Operations */}
           <button
             onClick={() => setActiveSection('OVERVIEW')}
             className={`px-4 py-3 text-xs font-bold flex items-center space-x-2 whitespace-nowrap transition cursor-pointer border-b-2 ${
@@ -282,8 +288,8 @@ export const BranchPortalsHub: React.FC = () => {
                 : 'border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100'
             }`}
           >
-            <Building2 className="w-4 h-4" />
-            <span>1. Site Overview &amp; Valuation</span>
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Branch Overview & Stats</span>
           </button>
 
           <button
@@ -294,8 +300,8 @@ export const BranchPortalsHub: React.FC = () => {
                 : 'border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100'
             }`}
           >
-            <CalendarDays className="w-4 h-4 text-blue-600" />
-            <span>2. Day-to-Day Sales (Oil Liters &amp; LPG Kg)</span>
+            <CalendarDays className="w-4 h-4" />
+            <span>Day-to-Day Sales Records</span>
           </button>
 
           <button
@@ -306,32 +312,27 @@ export const BranchPortalsHub: React.FC = () => {
                 : 'border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100'
             }`}
           >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>3. Record Shift Sale</span>
+            <ShoppingCart className="w-4 h-4" />
+            <span>Record Shift Sale (POS)</span>
             {unpostedShiftsCount > 0 && (
               <span className="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded-full text-[10px]">
                 {unpostedShiftsCount}
               </span>
             )}
           </button>
-
+          
           <button
-            onClick={() => setActiveSection('CASH_RECON')}
+            onClick={() => setActiveSection('STOCK_TRANSFERS')}
             className={`px-4 py-3 text-xs font-bold flex items-center space-x-2 whitespace-nowrap transition cursor-pointer border-b-2 ${
-              activeSection === 'CASH_RECON'
+              activeSection === 'STOCK_TRANSFERS'
                 ? 'border-blue-600 text-blue-700 bg-white'
                 : 'border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100'
             }`}
           >
-            <DollarSign className="w-4 h-4" />
-            <span>4. Cash Reconciliation (Handovers)</span>
-            {(discrepancyShiftsCount > 0 || pendingCashMovesCount > 0) && (
-              <span className="ml-1 px-1.5 py-0.2 bg-red-100 text-red-800 rounded-full text-[10px]">
-                {discrepancyShiftsCount + pendingCashMovesCount}
-              </span>
-            )}
+            <Truck className="w-4 h-4" />
+            <span>Inter-Branch Transfers</span>
           </button>
-
+          
           <button
             onClick={() => setActiveSection('STOCK_RECON')}
             className={`px-4 py-3 text-xs font-bold flex items-center space-x-2 whitespace-nowrap transition cursor-pointer border-b-2 ${
@@ -341,14 +342,32 @@ export const BranchPortalsHub: React.FC = () => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>5. Stock Reconciliation &amp; Dips</span>
+            <span>Stock & Products</span>
             {branchLowAlerts.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 bg-orange-100 text-orange-800 rounded-full text-[10px]">
+              <span className="ml-1 px-1.5 py-0.2 bg-red-100 text-red-800 rounded-full text-[10px]">
                 {branchLowAlerts.length}
               </span>
             )}
           </button>
 
+          {/* Reconciliation */}
+          <button
+            onClick={() => setActiveSection('CASH_RECON')}
+            className={`px-4 py-3 text-xs font-bold flex items-center space-x-2 whitespace-nowrap transition cursor-pointer border-b-2 ${
+              activeSection === 'CASH_RECON'
+                ? 'border-blue-600 text-blue-700 bg-white'
+                : 'border-transparent text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            <span>Cash Reconciliation</span>
+            {(discrepancyShiftsCount > 0 || pendingCashMovesCount > 0) && (
+              <span className="ml-1 px-1.5 py-0.2 bg-red-100 text-red-800 rounded-full text-[10px]">
+                {discrepancyShiftsCount + pendingCashMovesCount}
+              </span>
+            )}
+          </button>
+          
           <button
             onClick={() => setActiveSection('AIRTEL_LEDGER')}
             className={`px-4 py-3 text-xs font-bold flex items-center space-x-2 whitespace-nowrap transition cursor-pointer border-b-2 ${
@@ -358,10 +377,9 @@ export const BranchPortalsHub: React.FC = () => {
             }`}
           >
             <Smartphone className="w-4 h-4" />
-            <span>6. Airtel Money Float &amp; Till</span>
+            <span>Airtel Money Records</span>
           </button>
         </div>
-
         {/* Active Section Content Container */}
         <div className="p-6 bg-stone-50/50">
           {activeSection === 'OVERVIEW' && (
@@ -375,8 +393,7 @@ export const BranchPortalsHub: React.FC = () => {
             <BranchDayToDaySalesSection
               branchId={selectedBranch.id}
               onRecordSale={() => setActiveSection('SALES_ENTRY')}
-              title={`Day-to-Day Sales Records (${selectedBranch.name})`}
-              subtitle={`Complete daily shift entries, total liters of motor oil sold, and total kg of LPG sold at ${selectedBranch.name}`}
+              
             />
           )}
 
@@ -398,17 +415,14 @@ export const BranchPortalsHub: React.FC = () => {
             </div>
           )}
 
+          {activeSection === 'STOCK_TRANSFERS' && (
+            <div className="space-y-6">
+              <StockTransfersSection branchViewOnlyId={selectedBranch.id} />
+            </div>
+          )}
+
           {activeSection === 'CASH_RECON' && (
             <div className="space-y-6">
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-emerald-900 text-xs">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>
-                    <strong>Branch Cash Reconciliation &amp; Full Edit Mode:</strong> As Owner, you can click <strong>"Edit Recon"</strong> on any shift below to modify physical counted cash, expected sales, Airtel float transfers, and opening balances. You can also edit or approve cash handovers directly.
-                  </span>
-                </div>
-              </div>
-
               <CashReconciliationView
                 branchIdFilter={selectedBranch.id}
               />
@@ -417,15 +431,6 @@ export const BranchPortalsHub: React.FC = () => {
 
           {activeSection === 'STOCK_RECON' && (
             <div className="space-y-6">
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl flex items-center justify-between text-purple-900 text-xs">
-                <div className="flex items-center space-x-2">
-                  <Layers className="w-4 h-4 text-purple-600 shrink-0" />
-                  <span>
-                    <strong>Stock Valuation &amp; Physical Dip Audits:</strong> Audit physical quantities for <strong>{selectedBranch.name}</strong>, log variances (spillages/leakages/valve tests), and write adjustments to branch warehouse inventory.
-                  </span>
-                </div>
-              </div>
-
               <StockReconciliation
                 branchIdFilter={selectedBranch.id}
               />
@@ -434,15 +439,6 @@ export const BranchPortalsHub: React.FC = () => {
 
           {activeSection === 'AIRTEL_LEDGER' && (
             <div className="space-y-6">
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between text-red-900 text-xs">
-                <div className="flex items-center space-x-2">
-                  <Smartphone className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>
-                    <strong>Airtel Float &amp; Till Operations:</strong> Manage and verify daily sales cash-ins, direct customer phone payments, float top-ups, and bank transfers for <strong>{selectedBranch.name}</strong>.
-                  </span>
-                </div>
-              </div>
-
               <AirtelMoneyLedger
                 branchIdFilter={selectedBranch.id}
               />
