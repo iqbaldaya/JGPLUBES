@@ -236,6 +236,8 @@ interface AppContextType {
   // Legacy Airtel Float helpers (backward compatibility)
   addAirtelMoneyRecord: (record: Omit<AirtelMoneyRecord, 'id' | 'createdAt'>) => AirtelMoneyRecord;
   verifyAirtelMoneyRecord: (recordId: string) => void;
+  deleteAirtelMoneyRecord: (recordId: string) => void;
+  updateAirtelMoneyRecord: (recordId: string, updates: Partial<AirtelMoneyRecord>) => void;
   verifyAirtelRecord: (recordId: string) => void;
 
   // Inter-Branch Stock Transfers (Site-to-Site Logistics)
@@ -2379,6 +2381,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
+  const deleteAirtelMoneyRecord = (recordId: string) => {
+    setAirtelMoneyRecords((prev) => prev.filter((r) => r.id !== recordId));
+  };
+
+  const updateAirtelMoneyRecord = (recordId: string, updates: Partial<AirtelMoneyRecord>) => {
+    setAirtelMoneyRecords((prev) =>
+      prev.map((r) => (r.id === recordId ? { ...r, ...updates } : r))
+    );
+  };
+
   // Recalculation helpers for ledger running balances
   const computeBankBalances = (records: BankRecord[]) => {
     let running = 0;
@@ -4475,6 +4487,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         syncProductCostPricesWithInvoices,
         addAirtelMoneyRecord,
         verifyAirtelMoneyRecord,
+        deleteAirtelMoneyRecord,
+        updateAirtelMoneyRecord,
         verifyAirtelRecord: verifyAirtelMoneyRecord,
         resetToDemoData,
         formatSystemDataToZero,
