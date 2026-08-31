@@ -325,7 +325,7 @@ export const SupplierLedger: React.FC = () => {
   const handleCreateInvoice = (e: React.FormEvent) => {
     e.preventDefault();
     const supp = suppliers.find((s) => s.id === newInvoiceData.supplierId);
-    const branch = branches.find((b) => b.id === newInvoiceData.branchId);
+    const branch = branches.find((b) => b.id === newInvoiceData.branchId) || branches[0];
     if (!supp) return;
 
     if (!newInvoiceData.referenceNo.trim()) {
@@ -337,17 +337,21 @@ export const SupplierLedger: React.FC = () => {
       return;
     }
 
-    const itemEntries: SupplierItemEntry[] = newInvoiceData.items.map((item) => {
-      const prod = products.find((p) => p.id === item.productId);
-      return {
-        productId: item.productId,
-        productName: prod ? prod.name : 'Item',
-        productCode: prod ? prod.code : 'SKU',
-        quantity: item.quantity,
-        unitCost: item.unitCost,
-        totalCost: item.quantity * item.unitCost,
-      };
-    });
+    const itemEntries: SupplierItemEntry[] = newInvoiceData.items
+      .filter((item) => item.productId && (Number(item.quantity) > 0 || Number(item.unitCost) > 0))
+      .map((item) => {
+        const prod = products.find((p) => p.id === item.productId);
+        const qty = Number(item.quantity) || 0;
+        const unitCost = Number(item.unitCost) || 0;
+        return {
+          productId: item.productId,
+          productName: prod ? prod.name : 'Item',
+          productCode: prod ? prod.code : 'SKU',
+          quantity: qty,
+          unitCost: unitCost,
+          totalCost: qty * unitCost,
+        };
+      });
 
     addSupplierTransaction(
       {
@@ -371,7 +375,7 @@ export const SupplierLedger: React.FC = () => {
     setNotification({
       type: 'success',
       message: `Invoice ${newInvoiceData.referenceNo} posted to ${supp.name}'s account. ${
-        newInvoiceData.autoReplenishStock ? 'Branch stock replenished automatically!' : ''
+        newInvoiceData.autoReplenishStock ? 'Product quantities and pricing updated!' : ''
       }`,
     });
     setTimeout(() => setNotification(null), 3500);

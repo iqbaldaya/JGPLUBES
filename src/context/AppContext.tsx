@@ -1916,6 +1916,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (Math.abs(oldCost - finalCost) > 0.001) {
           updatedCount++;
+          api.updateProduct(product.id, { costPrice: finalCost }).catch(console.error);
         }
 
         details.push({
@@ -1953,33 +1954,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     autoReplenishStock: boolean = true
   ): SupplierTransaction => {
     const newId = `stx-${Date.now()}`;
+    const targetBranchId = txData.branchId || branches[0]?.id || '';
+    const targetBranchName = txData.branchName || branches.find(b => b.id === targetBranchId)?.name || '';
+
     const newTx: SupplierTransaction = {
       ...txData,
+      branchId: targetBranchId || txData.branchId,
+      branchName: targetBranchName || txData.branchName,
       id: newId,
       createdAt: new Date().toISOString(),
     };
 
     // If it's an invoice with items and branch selected, replenish branch stock
-    if (newTx.type === 'INVOICE' && newTx.items && newTx.items.length > 0 && autoReplenishStock && newTx.branchId) {
+    if (newTx.type === 'INVOICE' && newTx.items && newTx.items.length > 0 && autoReplenishStock && targetBranchId) {
       setBranchStocks((prev) => {
         const updated = [...prev];
         newTx.items!.forEach((item) => {
+          const qty = Number(item.quantity) || 0;
+          if (qty <= 0) return;
+
           const index = updated.findIndex(
-            (s) => s.branchId === newTx.branchId && s.productId === item.productId
+            (s) => s.branchId === targetBranchId && s.productId === item.productId
           );
           if (index >= 0) {
+            const newQty = (Number(updated[index].quantity) || 0) + qty;
             updated[index] = {
               ...updated[index],
-              quantity: updated[index].quantity + item.quantity,
+              quantity: newQty,
               lastUpdated: newTx.date,
             };
+            api.upsertStock(targetBranchId, item.productId, newQty).catch(console.error);
           } else {
             updated.push({
-              branchId: newTx.branchId!,
+              branchId: targetBranchId,
               productId: item.productId,
-              quantity: item.quantity,
+              quantity: qty,
               lastUpdated: newTx.date,
             });
+            api.upsertStock(targetBranchId, item.productId, qty).catch(console.error);
           }
         });
         return updated;
@@ -1991,22 +2003,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProducts((prevProducts) => {
         return prevProducts.map((prod) => {
           const matchingItem = newTx.items?.find((it) => it.productId === prod.id);
-          if (!matchingItem || matchingItem.quantity <= 0 || matchingItem.unitCost <= 0) {
+          const itemQty = Number(matchingItem?.quantity) || 0;
+          const itemUnitCost = Number(matchingItem?.unitCost) || 0;
+
+          if (!matchingItem || itemQty <= 0 || itemUnitCost <= 0) {
             return prod;
           }
 
           // Remaining stock in network prior to this new purchase replenishment
           const currentRemainingStock = branchStocks
             .filter((bs) => bs.productId === prod.id)
-            .reduce((sum, bs) => sum + (bs.quantity || 0), 0);
+            .reduce((sum, bs) => sum + (Number(bs.quantity) || 0), 0);
 
-          const currentCostPrice = prod.costPrice || 0;
+          const currentCostPrice = Number(prod.costPrice) || 0;
           const newWacCost = calculateWeightedAverageCost(
             currentRemainingStock,
             currentCostPrice,
-            matchingItem.quantity,
-            matchingItem.unitCost
+            itemQty,
+            itemUnitCost
           );
+
+          // Persist product cost price update to database
+          api.updateProduct(prod.id, { costPrice: newWacCost }).catch(console.error);
 
           return {
             ...prod,
@@ -2087,8 +2105,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Handle inventory stock synchronization if requested for invoices
     if (isInvoice && options?.adjustBranchStock) {
-      const oldBranchId = prevTx.branchId;
-      const newBranchId = finalUpdates.branchId || prevTx.branchId;
+      const oldBranchId = prevTx.branchId || branches[0]?.id;
+      const newBranchId = finalUpdates.branchId || prevTx.branchId || branches[0]?.id;
       const oldItems = prevTx.items || [];
       const newItems = finalUpdates.items !== undefined ? finalUpdates.items : oldItems;
 
@@ -2098,14 +2116,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 1. Deduct old item quantities from the old branch
         if (oldBranchId && oldItems.length > 0) {
           oldItems.forEach((oldItem) => {
+            const oldQty = Number(oldItem.quantity) || 0;
+            if (oldQty <= 0) return;
             const idx = updated.findIndex(
               (s) => s.branchId === oldBranchId && s.productId === oldItem.productId
             );
             if (idx >= 0) {
+              const newQty = Math.max(0, (Number(updated[idx].quantity) || 0) - oldQty);
               updated[idx] = {
                 ...updated[idx],
-                quantity: Math.max(0, updated[idx].quantity - oldItem.quantity),
+                quantity: newQty,
               };
+              api.upsertStock(oldBranchId, oldItem.productId, newQty).catch(console.error);
             }
           });
         }
@@ -2113,22 +2135,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // 2. Add new item quantities to the new branch
         if (newBranchId && newItems.length > 0) {
           newItems.forEach((newItem) => {
+            const addQty = Number(newItem.quantity) || 0;
+            if (addQty <= 0) return;
             const idx = updated.findIndex(
               (s) => s.branchId === newBranchId && s.productId === newItem.productId
             );
             if (idx >= 0) {
+              const newQty = (Number(updated[idx].quantity) || 0) + addQty;
               updated[idx] = {
                 ...updated[idx],
-                quantity: updated[idx].quantity + newItem.quantity,
+                quantity: newQty,
                 lastUpdated: finalUpdates.date || prevTx.date,
               };
+              api.upsertStock(newBranchId, newItem.productId, newQty).catch(console.error);
             } else {
               updated.push({
                 branchId: newBranchId,
                 productId: newItem.productId,
-                quantity: newItem.quantity,
+                quantity: addQty,
                 lastUpdated: finalUpdates.date || prevTx.date,
               });
+              api.upsertStock(newBranchId, newItem.productId, addQty).catch(console.error);
             }
           });
         }
@@ -2142,21 +2169,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setProducts((prevProducts) => {
         return prevProducts.map((prod) => {
           const matchingItem = finalUpdates.items?.find((it) => it.productId === prod.id);
-          if (!matchingItem || matchingItem.quantity <= 0 || matchingItem.unitCost <= 0) {
+          const itemQty = Number(matchingItem?.quantity) || 0;
+          const itemUnitCost = Number(matchingItem?.unitCost) || 0;
+
+          if (!matchingItem || itemQty <= 0 || itemUnitCost <= 0) {
             return prod;
           }
 
           const currentRemainingStock = branchStocks
             .filter((bs) => bs.productId === prod.id)
-            .reduce((sum, bs) => sum + (bs.quantity || 0), 0);
+            .reduce((sum, bs) => sum + (Number(bs.quantity) || 0), 0);
 
-          const currentCostPrice = prod.costPrice || 0;
+          const currentCostPrice = Number(prod.costPrice) || 0;
           const newWacCost = calculateWeightedAverageCost(
             currentRemainingStock,
             currentCostPrice,
-            matchingItem.quantity,
-            matchingItem.unitCost
+            itemQty,
+            itemUnitCost
           );
+
+          api.updateProduct(prod.id, { costPrice: newWacCost }).catch(console.error);
 
           return {
             ...prod,
@@ -2193,14 +2225,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setBranchStocks((prevStocks) => {
         let updated = [...prevStocks];
         txToDelete.items?.forEach((item) => {
+          const itemQty = Number(item.quantity) || 0;
+          if (itemQty <= 0) return;
           const idx = updated.findIndex(
             (s) => s.branchId === txToDelete.branchId && s.productId === item.productId
           );
           if (idx >= 0) {
+            const newQty = Math.max(0, (Number(updated[idx].quantity) || 0) - itemQty);
             updated[idx] = {
               ...updated[idx],
-              quantity: Math.max(0, updated[idx].quantity - item.quantity),
+              quantity: newQty,
             };
+            api.upsertStock(txToDelete.branchId!, item.productId, newQty).catch(console.error);
           }
         });
         return updated;
