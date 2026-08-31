@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Product, ProductCategory } from '../../types';
 import { ProductWacModal } from './ProductWacModal';
+import { ProductCsvImportModal } from './ProductCsvImportModal';
 import {
   Package,
   Plus,
@@ -23,6 +24,8 @@ import {
   Info,
   CheckCircle2,
   DollarSign,
+  FileSpreadsheet,
+  UploadCloud,
 } from 'lucide-react';
 
 export const ProductCatalog: React.FC = () => {
@@ -43,6 +46,7 @@ export const ProductCatalog: React.FC = () => {
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
 
   // Modal states
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -323,6 +327,16 @@ export const ProductCatalog: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            id="btn-import-products-csv"
+            onClick={() => setIsImportModalOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-lg flex items-center space-x-2 transition shadow-xs cursor-pointer"
+            title="Import multiple products, pricing and branch stock items from CSV or Excel file"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Import CSV / Excel</span>
+          </button>
+
           <button
             id="btn-sync-wac-costs"
             onClick={() => {
@@ -1392,6 +1406,16 @@ export const ProductCatalog: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* CSV / Excel Bulk Product & Stock Import Modal */}
+      <ProductCsvImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={(msg) => {
+          setSuccessMsg(msg);
+          setTimeout(() => setSuccessMsg(null), 4000);
+        }}
+      />
     </div>
   );
 };

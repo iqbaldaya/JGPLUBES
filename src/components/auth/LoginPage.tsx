@@ -11,17 +11,14 @@ import {
   EyeOff,
   LogIn,
   AlertCircle,
-  CheckCircle2,
   Store,
   UserCheck,
   ChevronDown,
   KeyRound,
-  Info,
-  Sparkles,
 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { branches, login, ownerPassword } = useApp();
+  const { branches, login } = useApp();
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('OWNER');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
@@ -29,7 +26,6 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [showCredentialsHelper, setShowCredentialsHelper] = useState<boolean>(false);
 
   // Auto-select first active branch if switching to BRANCH_MANAGER and none selected
   useEffect(() => {
@@ -73,19 +69,6 @@ export const LoginPage: React.FC = () => {
 
     if (!res.success) {
       setErrorMessage(res.message || 'Login failed. Please check your credentials.');
-    }
-  };
-
-  const handleQuickFillDemo = (roleToSet: UserRole, branchIdToSet?: string) => {
-    setSelectedRole(roleToSet);
-    setErrorMessage(null);
-    if (roleToSet === 'OWNER') {
-      setPassword(ownerPassword || 'admin123');
-    } else {
-      const targetBId = branchIdToSet || branches[0]?.id || '';
-      setSelectedBranchId(targetBId);
-      const b = branches.find((item) => item.id === targetBId);
-      setPassword(b?.password || '123456');
     }
   };
 
@@ -320,80 +303,6 @@ export const LoginPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Credentials & Passwords Guide */}
-          <div className="pt-2 border-t border-slate-800">
-            <button
-              type="button"
-              id="btn-toggle-demo-credentials"
-              onClick={() => setShowCredentialsHelper(!showCredentialsHelper)}
-              className="w-full flex items-center justify-between text-xs text-slate-400 hover:text-slate-200 transition py-1"
-            >
-              <span className="flex items-center space-x-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                <span className="font-semibold">Demo Credentials &amp; Quick Login</span>
-              </span>
-              <span className="text-[11px] text-blue-400">
-                {showCredentialsHelper ? 'Hide Details' : 'View Passwords'}
-              </span>
-            </button>
-
-            {showCredentialsHelper && (
-              <div className="mt-3 p-3 bg-slate-950/80 border border-slate-800 rounded-xl text-xs space-y-2.5 animate-in fade-in">
-                <div className="text-[11px] text-slate-400 leading-relaxed">
-                  Click any account below to instantly autofill and test the login workflow:
-                </div>
-
-                {/* Owner Autofill */}
-                <div className="flex items-center justify-between p-2 bg-slate-900 rounded-lg border border-blue-500/30">
-                  <div className="flex items-center space-x-2">
-                    <ShieldCheck className="w-4 h-4 text-blue-400" />
-                    <div>
-                      <div className="font-bold text-white text-xs">Executive Owner HQ</div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        Password: <strong className="text-blue-300">{ownerPassword || 'admin123'}</strong>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFillDemo('OWNER')}
-                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-semibold transition shadow-xs"
-                  >
-                    Use Owner
-                  </button>
-                </div>
-
-                {/* Branches Autofill List */}
-                <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-0.5">
-                    Branch Site Passwords (Set in Branch Management):
-                  </div>
-
-                  {branches.map((b) => (
-                    <div
-                      key={b.id}
-                      className="flex items-center justify-between p-2 bg-slate-900/80 rounded-lg border border-slate-800 hover:border-slate-700 transition text-[11px]"
-                    >
-                      <div className="truncate pr-2">
-                        <span className="font-bold text-slate-200">[{b.code}] {b.name}</span>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          Password: <strong className="text-amber-300">{b.password || '123456'}</strong>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleQuickFillDemo('BRANCH_MANAGER', b.id)}
-                        className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded text-[10px] font-semibold shrink-0 border border-slate-700"
-                      >
-                        Select
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Footer info */}

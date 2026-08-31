@@ -284,6 +284,35 @@ interface AppContextType {
     updateExisting?: boolean
   ) => { success: boolean; createdCount: number; updatedCount: number; message: string };
 
+  bulkImportProductsWithStocks: (
+    items: {
+      product: {
+        code: string;
+        name: string;
+        category: 'LUBRICANTS' | 'LPG';
+        subCategory?: string;
+        unit?: string;
+        volumeLitersOrKg?: number;
+        costPrice: number;
+        sellingPrice: number;
+        reorderThreshold?: number;
+        description?: string;
+      };
+      stocks?: { branchId: string; quantity: number }[];
+    }[],
+    options?: {
+      updateExistingProducts?: boolean;
+      stockMode?: 'SET' | 'ADD';
+    }
+  ) => {
+    success: boolean;
+    createdProductsCount: number;
+    updatedProductsCount: number;
+    updatedStocksCount: number;
+    totalStockUnits: number;
+    message: string;
+  };
+
   bulkImportBranchStocks: (
     stocksData: { branchId: string; productId: string; quantity: number }[],
     mode?: 'SET' | 'ADD'
@@ -3737,6 +3766,165 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   };
 
+  const bulkImportProductsWithStocks = (
+    items: {
+      product: {
+        code: string;
+        name: string;
+        category: 'LUBRICANTS' | 'LPG';
+        subCategory?: string;
+        unit?: string;
+        volumeLitersOrKg?: number;
+        costPrice: number;
+        sellingPrice: number;
+        reorderThreshold?: number;
+        description?: string;
+      };
+      stocks?: { branchId: string; quantity: number }[];
+    }[],
+    options?: {
+      updateExistingProducts?: boolean;
+      stockMode?: 'SET' | 'ADD';
+    }
+  ) => {
+    const updateExisting = options?.updateExistingProducts ?? true;
+    const stockMode = options?.stockMode ?? 'SET';
+    const now = new Date().toISOString();
+
+    let createdProductsCount = 0;
+    let updatedProductsCount = 0;
+    let updatedStocksCount = 0;
+    let totalStockUnits = 0;
+
+    const currentProductsList = [...products];
+    const existingMap = new Map<string, Product>(currentProductsList.map((p) => [p.code.toUpperCase().trim(), p]));
+    const updatedStocksList = [...branchStocks];
+
+    items.forEach((entry) => {
+      const prodData = entry.product;
+      const codeKey = prodData.code.toUpperCase().trim();
+      const existing = existingMap.get(codeKey);
+      let targetProductId = '';
+
+      if (existing) {
+        targetProductId = existing.id;
+        if (updateExisting) {
+          const idx = currentProductsList.findIndex((p) => p.id === existing.id);
+          if (idx >= 0) {
+            const updatedProd: Product = {
+              ...currentProductsList[idx],
+              name: prodData.name || currentProductsList[idx].name,
+              category: prodData.category || currentProductsList[idx].category,
+              subCategory: prodData.subCategory || currentProductsList[idx].subCategory,
+              unit: prodData.unit || currentProductsList[idx].unit,
+              volumeLitersOrKg: prodData.volumeLitersOrKg || currentProductsList[idx].volumeLitersOrKg,
+              costPrice: prodData.costPrice >= 0 ? prodData.costPrice : currentProductsList[idx].costPrice,
+              sellingPrice: prodData.sellingPrice >= 0 ? prodData.sellingPrice : currentProductsList[idx].sellingPrice,
+              reorderThreshold: prodData.reorderThreshold ?? currentProductsList[idx].reorderThreshold,
+              description: prodData.description ?? currentProductsList[idx].description,
+            };
+            currentProductsList[idx] = updatedProd;
+            updatedProductsCount++;
+
+            // Sync to PostgreSQL
+            api.updateProduct(existing.id, updatedProd).catch((err) => {
+              console.warn(`Database sync warning for updateProduct ${existing.id}:`, err);
+            });
+          }
+        }
+      } else {
+        targetProductId = `prod-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        const newProd: Product = {
+          id: targetProductId,
+          code: prodData.code.trim(),
+          name: prodData.name.trim(),
+          category: prodData.category,
+          subCategory: prodData.subCategory || (prodData.category === 'LPG' ? 'LPG Refill' : 'Engine Oil'),
+          unit: prodData.unit || (prodData.category === 'LPG' ? '6kg Cylinder' : '5L Can'),
+          volumeLitersOrKg: prodData.volumeLitersOrKg || 1,
+          costPrice: prodData.costPrice || 0,
+          sellingPrice: prodData.sellingPrice || 0,
+          reorderThreshold: prodData.reorderThreshold ?? 5,
+          description: prodData.description,
+          isActive: true,
+        };
+        currentProductsList.push(newProd);
+        existingMap.set(codeKey, newProd);
+        createdProductsCount++;
+
+        // Sync to PostgreSQL
+        api.createProduct(newProd).catch((err) => {
+          console.warn(`Database sync warning for createProduct ${newProd.id}:`, err);
+        });
+
+        // Initialize zero stock entries for all branches if not provided
+        branches.forEach((b) => {
+          const hasProvidedStock = entry.stocks && entry.stocks.some((s) => s.branchId === b.id);
+          if (!hasProvidedStock) {
+            updatedStocksList.push({
+              branchId: b.id,
+              productId: targetProductId,
+              quantity: 0,
+              lastUpdated: now,
+            });
+          }
+        });
+      }
+
+      // Handle Branch Stocks for this product
+      if (entry.stocks && entry.stocks.length > 0) {
+        entry.stocks.forEach((stockEntry) => {
+          if (!stockEntry.branchId || !targetProductId) return;
+          const targetQty = Number(stockEntry.quantity) || 0;
+          const stockIdx = updatedStocksList.findIndex(
+            (s) => s.branchId === stockEntry.branchId && s.productId === targetProductId
+          );
+
+          let finalQty = 0;
+          if (stockIdx >= 0) {
+            finalQty = stockMode === 'ADD'
+              ? updatedStocksList[stockIdx].quantity + targetQty
+              : Math.max(0, targetQty);
+
+            updatedStocksList[stockIdx] = {
+              ...updatedStocksList[stockIdx],
+              quantity: finalQty,
+              lastUpdated: now,
+            };
+          } else {
+            finalQty = Math.max(0, targetQty);
+            updatedStocksList.push({
+              branchId: stockEntry.branchId,
+              productId: targetProductId,
+              quantity: finalQty,
+              lastUpdated: now,
+            });
+          }
+
+          updatedStocksCount++;
+          totalStockUnits += targetQty;
+
+          // Sync stock to PostgreSQL
+          api.upsertStock(stockEntry.branchId, targetProductId, finalQty).catch((err) => {
+            console.warn(`Database sync warning for upsertStock (${stockEntry.branchId}, ${targetProductId}):`, err);
+          });
+        });
+      }
+    });
+
+    setProducts(currentProductsList);
+    setBranchStocks(updatedStocksList);
+
+    return {
+      success: true,
+      createdProductsCount,
+      updatedProductsCount,
+      updatedStocksCount,
+      totalStockUnits,
+      message: `Import complete! ${createdProductsCount} new products cataloged, ${updatedProductsCount} existing items updated, and ${updatedStocksCount} branch stock inventory records synchronized (${totalStockUnits.toLocaleString()} total units assigned).`,
+    };
+  };
+
   const bulkImportDebtors = (
     debtorsData: {
       code?: string;
@@ -4054,6 +4242,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cancelStockTransfer,
         deleteStockTransfer,
         bulkImportProducts,
+        bulkImportProductsWithStocks,
         bulkImportBranchStocks,
         bulkImportDebtors,
         bulkImportSuppliers,

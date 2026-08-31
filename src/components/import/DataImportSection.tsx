@@ -22,21 +22,25 @@ import {
 import {
   parseUploadedSpreadsheet,
   validateAndParseProductsImport,
+  validateAndParseProductAndStockImport,
   validateAndParseStockCountsImport,
   validateAndParseDebtorsImport,
   validateAndParseSuppliersImport,
   downloadProductsTemplate,
+  downloadProductAndStockTemplate,
   downloadStockCountsTemplate,
   downloadDebtorsTemplate,
   downloadSuppliersTemplate,
+  exportCurrentCatalogAndStockTemplate,
   ParsedProductRow,
+  ParsedProductAndStockRow,
   ParsedStockCountRow,
   ParsedDebtorRow,
   ParsedSupplierRow,
   ImportValidationIssue,
 } from '../../utils/importUtils';
 
-type ImportType = 'PRODUCTS' | 'BRANCH_STOCKS' | 'DEBTORS' | 'SUPPLIERS';
+type ImportType = 'PRODUCT_AND_STOCK' | 'PRODUCTS' | 'BRANCH_STOCKS' | 'DEBTORS' | 'SUPPLIERS';
 
 export const DataImportSection: React.FC = () => {
   const {
@@ -46,12 +50,13 @@ export const DataImportSection: React.FC = () => {
     debtors,
     suppliers,
     bulkImportProducts,
+    bulkImportProductsWithStocks,
     bulkImportBranchStocks,
     bulkImportDebtors,
     bulkImportSuppliers,
   } = useApp();
 
-  const [activeType, setActiveType] = useState<ImportType>('PRODUCTS');
+  const [activeType, setActiveType] = useState<ImportType>('PRODUCT_AND_STOCK');
   const [stockImportMode, setStockImportMode] = useState<'SET' | 'ADD'>('SET');
   const [updateExistingProducts, setUpdateExistingProducts] = useState<boolean>(true);
 
@@ -60,6 +65,16 @@ export const DataImportSection: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Parsed validation states
+  const [productAndStockValidation, setProductAndStockValidation] = useState<{
+    parsedRows: ParsedProductAndStockRow[];
+    totalValid: number;
+    totalErrors: number;
+    newCount: number;
+    updateCount: number;
+    totalStockUnits: number;
+    detectedBranchColumns: { branchId: string; branchCode: string; branchName: string; colIndex: number; headerName: string }[];
+  } | null>(null);
+
   const [productValidation, setProductValidation] = useState<{
     parsedRows: ParsedProductRow[];
     totalValid: number;
@@ -99,6 +114,7 @@ export const DataImportSection: React.FC = () => {
     setActiveType(type);
     setSelectedFile(null);
     setErrorMessage(null);
+    setProductAndStockValidation(null);
     setProductValidation(null);
     setStockValidation(null);
     setDebtorValidation(null);
@@ -110,6 +126,9 @@ export const DataImportSection: React.FC = () => {
   // Download template handlers
   const handleDownloadTemplate = (format: 'xlsx' | 'csv' = 'xlsx') => {
     switch (activeType) {
+      case 'PRODUCT_AND_STOCK':
+        downloadProductAndStockTemplate(branches, format);
+        break;
       case 'PRODUCTS':
         downloadProductsTemplate(format);
         break;
@@ -141,6 +160,7 @@ export const DataImportSection: React.FC = () => {
   const processFile = async (file: File) => {
     setIsParsing(true);
     setErrorMessage(null);
+    setProductAndStockValidation(null);
     setProductValidation(null);
     setStockValidation(null);
     setDebtorValidation(null);
@@ -154,6 +174,17 @@ export const DataImportSection: React.FC = () => {
       }
 
       switch (activeType) {
+        case 'PRODUCT_AND_STOCK': {
+          const res = validateAndParseProductAndStockImport(
+            headers,
+            rows,
+            products,
+            branches,
+            branchStocks
+          );
+          setProductAndStockValidation(res);
+          break;
+        }
         case 'PRODUCTS': {
           const res = validateAndParseProductsImport(headers, rows, products);
           setProductValidation(res);
@@ -185,6 +216,38 @@ export const DataImportSection: React.FC = () => {
   // Commit valid records
   const handleCommitImport = () => {
     switch (activeType) {
+      case 'PRODUCT_AND_STOCK': {
+        if (!productAndStockValidation || productAndStockValidation.totalValid === 0) return;
+        const validRows = productAndStockValidation.parsedRows.filter((r) => r.isValid);
+        const itemsToImport = validRows.map((r) => ({
+          product: {
+            code: r.code,
+            name: r.name,
+            category: r.category,
+            subCategory: r.subCategory,
+            unit: r.unit,
+            volumeLitersOrKg: r.volumeLitersOrKg,
+            costPrice: r.costPrice,
+            sellingPrice: r.sellingPrice,
+            reorderThreshold: r.reorderThreshold,
+            description: r.description,
+          },
+          stocks: r.branchStocks.map((bs) => ({
+            branchId: bs.branchId,
+            quantity: bs.quantity,
+          })),
+        }));
+
+        const res = bulkImportProductsWithStocks(itemsToImport, {
+          updateExistingProducts,
+          stockMode: stockImportMode,
+        });
+
+        setCommitSummary(res.message);
+        setProductAndStockValidation(null);
+        break;
+      }
+
       case 'PRODUCTS': {
         if (!productValidation || productValidation.totalValid === 0) return;
         const validItems = productValidation.parsedRows
@@ -274,7 +337,9 @@ export const DataImportSection: React.FC = () => {
 
   // Active validation stats
   const activeValidCount =
-    activeType === 'PRODUCTS'
+    activeType === 'PRODUCT_AND_STOCK'
+      ? productAndStockValidation?.totalValid ?? 0
+      : activeType === 'PRODUCTS'
       ? productValidation?.totalValid ?? 0
       : activeType === 'BRANCH_STOCKS'
       ? stockValidation?.totalValid ?? 0
@@ -283,7 +348,9 @@ export const DataImportSection: React.FC = () => {
       : supplierValidation?.totalValid ?? 0;
 
   const activeErrorCount =
-    activeType === 'PRODUCTS'
+    activeType === 'PRODUCT_AND_STOCK'
+      ? productAndStockValidation?.totalErrors ?? 0
+      : activeType === 'PRODUCTS'
       ? productValidation?.totalErrors ?? 0
       : activeType === 'BRANCH_STOCKS'
       ? stockValidation?.totalErrors ?? 0
@@ -292,7 +359,9 @@ export const DataImportSection: React.FC = () => {
       : supplierValidation?.totalErrors ?? 0;
 
   const activeTotalRows =
-    activeType === 'PRODUCTS'
+    activeType === 'PRODUCT_AND_STOCK'
+      ? productAndStockValidation?.parsedRows.length ?? 0
+      : activeType === 'PRODUCTS'
       ? productValidation?.parsedRows.length ?? 0
       : activeType === 'BRANCH_STOCKS'
       ? stockValidation?.parsedRows.length ?? 0
@@ -318,13 +387,24 @@ export const DataImportSection: React.FC = () => {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Bulk populate products, branch stock counts, debtors, and suppliers from Microsoft Excel or CSV files.
+              Bulk populate products, pricing, multi-branch stock counts, debtors, and suppliers from Microsoft Excel or CSV files.
             </p>
           </div>
         </div>
 
         {/* TEMPLATE DOWNLOAD DROPDOWN / BUTTONS */}
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          {activeType === 'PRODUCT_AND_STOCK' && (
+            <button
+              id="export-current-catalog-btn"
+              onClick={() => exportCurrentCatalogAndStockTemplate(products, branches, branchStocks, 'xlsx')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl border border-slate-200 transition-colors cursor-pointer"
+              title="Export current catalog and branch stocks to Excel"
+            >
+              <FileText className="w-3.5 h-3.5 text-slate-500" />
+              Export Current
+            </button>
+          )}
           <button
             id="download-template-xlsx-btn"
             onClick={() => handleDownloadTemplate('xlsx')}
@@ -380,33 +460,40 @@ export const DataImportSection: React.FC = () => {
       )}
 
       {/* IMPORT CATEGORY SELECTOR CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           {
+            id: 'PRODUCT_AND_STOCK' as ImportType,
+            label: '1. Products & Stocks',
+            desc: 'All-in-one: SKUs, pricing & branch inventory quantities',
+            icon: Sparkles,
+            badge: `${products.length} SKUs`,
+          },
+          {
             id: 'PRODUCTS' as ImportType,
-            label: '1. Product Catalog',
-            desc: 'Lubricants & LPG SKUs, cost prices, selling prices, packaging units',
+            label: '2. Product Catalog',
+            desc: 'Lubricants & LPG SKUs, cost prices, selling prices, units',
             icon: Package,
             badge: `${products.length} In Catalog`,
           },
           {
             id: 'BRANCH_STOCKS' as ImportType,
-            label: '2. Branch Stock Counts',
+            label: '3. Branch Stock Counts',
             desc: 'Physical inventory levels per branch & SKU (Overwrite or Add)',
             icon: Layers,
             badge: `${branches.length} Branches`,
           },
           {
             id: 'DEBTORS' as ImportType,
-            label: '3. Debtors & Credit Accounts',
-            desc: 'Corporate & retail credit customers, phone numbers & credit limits',
+            label: '4. Debtors & Credit',
+            desc: 'Corporate & retail credit customers & credit limits',
             icon: Users,
             badge: `${debtors.length} Debtors`,
           },
           {
             id: 'SUPPLIERS' as ImportType,
-            label: '4. Suppliers Directory',
-            desc: 'Wholesale refineries, gas vendors, contact details & credit terms',
+            label: '5. Suppliers Directory',
+            desc: 'Refineries, gas vendors, contact details & terms',
             icon: Building2,
             badge: `${suppliers.length} Suppliers`,
           },
@@ -505,7 +592,7 @@ export const DataImportSection: React.FC = () => {
             </div>
 
             {/* IMPORT OPTIONS */}
-            {activeType === 'PRODUCTS' && (
+            {(activeType === 'PRODUCT_AND_STOCK' || activeType === 'PRODUCTS') && (
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
                 <div>
                   <span className="font-bold text-slate-800">Existing Products Handling:</span>
@@ -525,7 +612,7 @@ export const DataImportSection: React.FC = () => {
               </div>
             )}
 
-            {activeType === 'BRANCH_STOCKS' && (
+            {(activeType === 'PRODUCT_AND_STOCK' || activeType === 'BRANCH_STOCKS') && (
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2.5">
                 <span className="font-bold text-slate-800 block">Stock Update Mode:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -587,6 +674,23 @@ export const DataImportSection: React.FC = () => {
               <Info className="w-4 h-4 text-blue-600" />
               <span>Column Guidelines</span>
             </div>
+
+            {activeType === 'PRODUCT_AND_STOCK' && (
+              <div className="space-y-2 text-slate-600">
+                <p>
+                  <strong>Product Code &amp; Name:</strong> Unique SKU and title (e.g. <code>LUB-15W40-5L</code>).
+                </p>
+                <p>
+                  <strong>Category:</strong> <code>LUBRICANTS</code> or <code>LPG</code>.
+                </p>
+                <p>
+                  <strong>Cost &amp; Selling:</strong> Buying price &amp; selling price in ZMW.
+                </p>
+                <p>
+                  <strong>Branch Stock Columns:</strong> E.g. <code>Stock - Head Office</code> or <code>HQ-01</code>.
+                </p>
+              </div>
+            )}
 
             {activeType === 'PRODUCTS' && (
               <div className="space-y-2 text-slate-600">
@@ -676,7 +780,7 @@ export const DataImportSection: React.FC = () => {
       )}
 
       {/* PREVIEW CONTAINER */}
-      {(productValidation || stockValidation || debtorValidation || supplierValidation) && (
+      {(productAndStockValidation || productValidation || stockValidation || debtorValidation || supplierValidation) && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
@@ -719,6 +823,112 @@ export const DataImportSection: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* TABLE FOR COMBINED PRODUCT AND STOCK */}
+          {activeType === 'PRODUCT_AND_STOCK' && productAndStockValidation && (
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3">Row</th>
+                      <th className="py-2.5 px-3">SKU Code</th>
+                      <th className="py-2.5 px-3">Product Name</th>
+                      <th className="py-2.5 px-3">Category</th>
+                      <th className="py-2.5 px-3">Unit</th>
+                      <th className="py-2.5 px-3 text-right">Cost (ZMW)</th>
+                      <th className="py-2.5 px-3 text-right">Selling (ZMW)</th>
+                      <th className="py-2.5 px-3 text-right">Margin %</th>
+                      {branches.map((b) => (
+                        <th key={b.id} className="py-2.5 px-3 text-right">
+                          Stock ({b.code})
+                        </th>
+                      ))}
+                      <th className="py-2.5 px-3 text-center">Status / Validation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {productAndStockValidation.parsedRows.map((r, idx) => {
+                      const margin =
+                        r.sellingPrice > 0
+                          ? ((r.sellingPrice - r.costPrice) / r.sellingPrice) * 100
+                          : 0;
+
+                      return (
+                        <tr
+                          key={idx}
+                          className={!r.isValid ? 'bg-rose-50/50' : r.isExisting ? 'bg-blue-50/30' : 'hover:bg-slate-50'}
+                        >
+                          <td className="py-2 px-3 font-mono text-[11px] text-slate-400">#{r.rowNumber}</td>
+                          <td className="py-2 px-3 font-mono font-bold text-blue-700">{r.code}</td>
+                          <td className="py-2 px-3 font-medium text-slate-900">{r.name}</td>
+                          <td className="py-2 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                r.category === 'LPG'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                            >
+                              {r.category}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-slate-500">{r.unit}</td>
+                          <td className="py-2 px-3 text-right font-mono text-slate-700">K{r.costPrice.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">
+                            K{r.sellingPrice.toFixed(2)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono font-semibold">
+                            <span
+                              className={
+                                margin >= 20
+                                  ? 'text-emerald-700'
+                                  : margin > 0
+                                  ? 'text-amber-700'
+                                  : 'text-red-600'
+                              }
+                            >
+                              {margin.toFixed(1)}%
+                            </span>
+                          </td>
+                          {branches.map((b) => {
+                            const stockVal =
+                              r.branchStocks.find((bs) => bs.branchId === b.id)?.quantity || 0;
+                            return (
+                              <td
+                                key={b.id}
+                                className="py-2 px-3 text-right font-mono font-bold text-blue-700"
+                              >
+                                {stockVal.toLocaleString()}
+                              </td>
+                            );
+                          })}
+                          <td className="py-2 px-3 text-center">
+                            {r.isValid ? (
+                              r.isExisting ? (
+                                <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">
+                                  <span>Update Existing</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                  <span>New Product</span>
+                                </span>
+                              )
+                            ) : (
+                              <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>{r.issues[0]?.message || 'Invalid row'}</span>
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* TABLE FOR PRODUCTS */}
           {activeType === 'PRODUCTS' && productValidation && (
