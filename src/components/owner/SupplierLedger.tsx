@@ -257,6 +257,16 @@ export const SupplierLedger: React.FC = () => {
         productId: value,
         unitCost: prod ? prod.costPrice : updated[index].unitCost,
       };
+    } else if (field === 'quantity') {
+      updated[index] = {
+        ...updated[index],
+        quantity: value === '' ? 0 : parseInt(value, 10) || 0,
+      };
+    } else if (field === 'unitCost') {
+      updated[index] = {
+        ...updated[index],
+        unitCost: value === '' ? 0 : parseFloat(value) || 0,
+      };
     } else {
       updated[index] = {
         ...updated[index],
@@ -265,7 +275,7 @@ export const SupplierLedger: React.FC = () => {
     }
 
     // Recalculate total invoice amount
-    const total = updated.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+    const total = updated.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitCost || 0), 0);
 
     setNewInvoiceData({
       ...newInvoiceData,
@@ -958,8 +968,9 @@ export const SupplierLedger: React.FC = () => {
                         <input
                           type="number"
                           step="any"
-                          value={editTxData.amount || 0}
-                          onChange={(e) => setEditTxData({ ...editTxData, amount: Number(e.target.value) })}
+                          placeholder="0.00"
+                          value={editTxData.amount === 0 ? '' : editTxData.amount}
+                          onChange={(e) => setEditTxData({ ...editTxData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                           className="w-full px-2 py-1.5 border border-stone-300 rounded bg-white text-xs font-bold"
                         />
                       </div>
@@ -1533,9 +1544,9 @@ export const SupplierLedger: React.FC = () => {
                     <div className="w-20">
                       <input
                         type="number"
-                        min="1"
-                        placeholder="Qty"
-                        value={item.quantity}
+                        min="0"
+                        placeholder="0"
+                        value={item.quantity === 0 ? '' : item.quantity}
                         onChange={(e) => handleInvoiceItemChange(index, 'quantity', e.target.value)}
                         className="w-full px-2 py-1.5 border border-stone-300 rounded bg-white text-xs text-right font-semibold"
                       />
@@ -1545,15 +1556,16 @@ export const SupplierLedger: React.FC = () => {
                       <input
                         type="number"
                         step="any"
-                        placeholder="Unit Cost"
-                        value={item.unitCost}
+                        min="0"
+                        placeholder="0.00"
+                        value={item.unitCost === 0 ? '' : item.unitCost}
                         onChange={(e) => handleInvoiceItemChange(index, 'unitCost', e.target.value)}
                         className="w-full px-2 py-1.5 border border-stone-300 rounded bg-white text-xs text-right"
                       />
                     </div>
 
                     <div className="w-24 text-right text-xs font-bold text-stone-800">
-                      K{(item.quantity * item.unitCost).toFixed(2)}
+                      K{((item.quantity || 0) * (item.unitCost || 0)).toFixed(2)}
                     </div>
 
                     <button
@@ -1582,8 +1594,9 @@ export const SupplierLedger: React.FC = () => {
                     type="number"
                     step="any"
                     required
-                    value={newInvoiceData.amount}
-                    onChange={(e) => setNewInvoiceData({ ...newInvoiceData, amount: Number(e.target.value) })}
+                    placeholder="0.00"
+                    value={newInvoiceData.amount === 0 ? '' : newInvoiceData.amount}
+                    onChange={(e) => setNewInvoiceData({ ...newInvoiceData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg text-base font-black text-stone-900"
                   />
                 </div>
@@ -1696,8 +1709,8 @@ export const SupplierLedger: React.FC = () => {
                     required
                     min="1"
                     placeholder="0.00"
-                    value={newPaymentData.amount || ''}
-                    onChange={(e) => setNewPaymentData({ ...newPaymentData, amount: Number(e.target.value) })}
+                    value={newPaymentData.amount === 0 ? '' : newPaymentData.amount}
+                    onChange={(e) => setNewPaymentData({ ...newPaymentData, amount: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 border border-stone-300 rounded-lg text-base font-black text-emerald-700"
                   />
                 </div>

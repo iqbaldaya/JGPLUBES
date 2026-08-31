@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { SaleItem, PettyCashExpense, DailySalesRecord, DailySalesPostingStatus } from '../../types';
 import {
@@ -122,8 +122,19 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
     (existingRecord.postingStatus === 'UNPOSTED' || existingRecord.postingStatus === 'POSTED_APPROVED')
   );
 
-  // Sync state whenever selectedBranchId or date changes, loading existing saved records for that day
+  const lastLoadedKeyRef = useRef<string>('');
+  const hasManuallyEditedCashRef = useRef<boolean>(false);
+  const hasManuallyEditedActualCashRef = useRef<boolean>(false);
+
+  // Sync state ONLY when selectedBranchId or date changes (or on initial load)
+  // This ensures background database polling doesn't wipe in-progress user data
   useEffect(() => {
+    const currentKey = `${selectedBranchId}__${date}`;
+    if (lastLoadedKeyRef.current === currentKey) {
+      return;
+    }
+    lastLoadedKeyRef.current = currentKey;
+
     if (existingRecord) {
       // Load saved day data
       setShift(existingRecord.shift || 'Full Day');
@@ -133,7 +144,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       setBankOrCardSales(existingRecord.paymentBreakdown?.bankOrCardSales || 0);
       setCreditSales(existingRecord.paymentBreakdown?.creditSales || 0);
       setSelectedDebtorId(existingRecord.creditDebtorId || (debtors[0]?.id || ''));
-      setOpeningFloat(existingRecord.openingFloat || selectedBranch?.openingCashFloat || 1000);
+      setOpeningFloat(existingRecord.openingFloat ?? (selectedBranch?.openingCashFloat || 1000));
       setActualCashReceived(existingRecord.actualCashReceived || 0);
       setCashSentToAirtelMoney(existingRecord.cashSentToAirtelMoney || 0);
       setAirtelTxRef(existingRecord.airtelMoneyTxRef || '');
@@ -141,6 +152,8 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       setAirtelReceiver(existingRecord.airtelMoneyReceiver || 'HQ Main Airtel Wallet (+260 97 9990000)');
       setPettyExpenses(existingRecord.pettyCashExpenses || []);
       setNotes(existingRecord.notes || '');
+      hasManuallyEditedCashRef.current = true;
+      hasManuallyEditedActualCashRef.current = true;
     } else {
       // Blank day initial state
       setShift('Full Day');
@@ -158,22 +171,26 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       setAirtelReceiver('HQ Main Airtel Wallet (+260 97 9990000)');
       setPettyExpenses([]);
       setNotes('');
+      hasManuallyEditedCashRef.current = false;
+      hasManuallyEditedActualCashRef.current = false;
     }
-  }, [existingRecord, selectedBranchId, date, selectedBranch, debtors]);
+  }, [selectedBranchId, date, existingRecord, selectedBranch, debtors]);
 
   // Calculate totals from items
   const totalSalesAmount = items.reduce((sum, item) => sum + item.totalAmount, 0);
   const totalCostAmount = items.reduce((sum, item) => sum + item.totalCost, 0);
   const grossProfit = totalSalesAmount - totalCostAmount;
 
-  // Auto-sync cash sales when items change (if not manually set and not locked)
+  // Auto-sync cash sales when items change (ONLY if user hasn't manually edited the cash figure)
   useEffect(() => {
     if (!isLockedForBranch && (!existingRecord || existingRecord.postingStatus === 'DRAFT' || existingRecord.postingStatus === 'REJECTED')) {
-      const nonCash = airtelDirectSales + bankOrCardSales + creditSales;
-      const computedCash = Math.max(0, totalSalesAmount - nonCash);
-      setCashSales(computedCash);
-      if (actualCashReceived === 0 || actualCashReceived === cashSales) {
-        setActualCashReceived(computedCash);
+      if (!hasManuallyEditedCashRef.current) {
+        const nonCash = airtelDirectSales + bankOrCardSales + creditSales;
+        const computedCash = Math.max(0, totalSalesAmount - nonCash);
+        setCashSales(computedCash);
+        if (!hasManuallyEditedActualCashRef.current) {
+          setActualCashReceived(computedCash);
+        }
       }
     }
   }, [totalSalesAmount, airtelDirectSales, bankOrCardSales, creditSales, isLockedForBranch, existingRecord]);
@@ -228,7 +245,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
   const handleUpdateItemQty = (index: number, qty: number) => {
     if (isLockedForBranch) return;
     const updated = [...items];
-    const newQty = Math.max(1, qty);
+    const newQty = Math.max(0, qty);
     const item = updated[index];
     updated[index] = {
       ...item,
@@ -680,8 +697,9 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
             </label>
             <input
               type="number"
-              value={openingFloat}
-              onChange={(e) => setOpeningFloat(Number(e.target.value))}
+              placeholder="0.00"
+              value={openingFloat === 0 ? '' : openingFloat}
+              onChange={(e) => setOpeningFloat(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
               disabled={isLockedForBranch}
               className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold disabled:bg-slate-100"
             />
@@ -780,10 +798,11 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                         ) : (
                           <input
                             type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateItemQty(index, Number(e.target.value))}
-                            className="w-16 px-2 py-1 border border-slate-300 rounded text-center font-bold text-xs"
+                            min="0"
+                            placeholder="0"
+                            value={item.quantity === 0 ? '' : item.quantity}
+                            onChange={(e) => handleUpdateItemQty(index, e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
+                            className="w-16 px-2 py-1 border border-slate-300 rounded text-center font-bold text-xs bg-white text-slate-900"
                           />
                         )}
                       </td>
@@ -841,9 +860,13 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 type="number"
                 step="any"
                 min="0"
-                value={cashSales}
+                placeholder="0.00"
+                value={cashSales === 0 ? '' : cashSales}
                 disabled={isLockedForBranch}
-                onChange={(e) => setCashSales(Number(e.target.value))}
+                onChange={(e) => {
+                  hasManuallyEditedCashRef.current = true;
+                  setCashSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0);
+                }}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 disabled:bg-slate-100"
               />
             </div>
@@ -858,9 +881,10 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 type="number"
                 step="any"
                 min="0"
-                value={airtelDirectSales}
+                placeholder="0.00"
+                value={airtelDirectSales === 0 ? '' : airtelDirectSales}
                 disabled={isLockedForBranch}
-                onChange={(e) => setAirtelDirectSales(Number(e.target.value))}
+                onChange={(e) => setAirtelDirectSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-red-900 disabled:bg-slate-100"
               />
             </div>
@@ -873,9 +897,10 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 type="number"
                 step="any"
                 min="0"
-                value={bankOrCardSales}
+                placeholder="0.00"
+                value={bankOrCardSales === 0 ? '' : bankOrCardSales}
                 disabled={isLockedForBranch}
-                onChange={(e) => setBankOrCardSales(Number(e.target.value))}
+                onChange={(e) => setBankOrCardSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold disabled:bg-slate-100"
               />
             </div>
@@ -888,9 +913,10 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 type="number"
                 step="any"
                 min="0"
-                value={creditSales}
+                placeholder="0.00"
+                value={creditSales === 0 ? '' : creditSales}
                 disabled={isLockedForBranch}
-                onChange={(e) => setCreditSales(Number(e.target.value))}
+                onChange={(e) => setCreditSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-amber-900 disabled:bg-slate-100"
               />
             </div>
@@ -958,9 +984,14 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 id="input-actual-cash-received"
                 type="number"
                 step="any"
-                value={actualCashReceived}
+                min="0"
+                placeholder="0.00"
+                value={actualCashReceived === 0 ? '' : actualCashReceived}
                 disabled={isLockedForBranch}
-                onChange={(e) => setActualCashReceived(Number(e.target.value))}
+                onChange={(e) => {
+                  hasManuallyEditedActualCashRef.current = true;
+                  setActualCashReceived(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0);
+                }}
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-black text-slate-900 disabled:bg-slate-100"
               />
             </div>
@@ -1001,9 +1032,10 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 type="number"
                 step="any"
                 min="0"
-                value={cashSentToAirtelMoney || ''}
+                placeholder="0.00"
+                value={cashSentToAirtelMoney === 0 ? '' : cashSentToAirtelMoney}
                 disabled={isLockedForBranch}
-                onChange={(e) => setCashSentToAirtelMoney(Number(e.target.value))}
+                onChange={(e) => setCashSentToAirtelMoney(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-900 disabled:bg-slate-100"
               />
             </div>
@@ -1055,9 +1087,10 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
               <input
                 type="number"
                 min="0"
+                step="any"
                 placeholder="Amount (K)"
-                value={newExpenseAmount || ''}
-                onChange={(e) => setNewExpenseAmount(Number(e.target.value))}
+                value={newExpenseAmount === 0 ? '' : newExpenseAmount}
+                onChange={(e) => setNewExpenseAmount(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-28 px-3 py-1.5 border border-slate-300 rounded-xl text-xs text-right font-semibold"
               />
               <button

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DailySalesRecord, SaleItem, PettyCashExpense } from '../../types';
 import {
@@ -73,10 +73,16 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const lastLoadedSaleIdRef = useRef<string>('');
 
   // Load sale data when opened or changed
   useEffect(() => {
-    if (sale) {
+    if (isOpen && sale) {
+      if (lastLoadedSaleIdRef.current === sale.id) {
+        return;
+      }
+      lastLoadedSaleIdRef.current = sale.id;
+
       setSelectedBranchId(sale.branchId);
       setDate(sale.date);
       setShift(sale.shift);
@@ -100,6 +106,8 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
       setAdjustmentReason('');
       setErrorMessage(null);
       setSuccessMessage(null);
+    } else if (!isOpen) {
+      lastLoadedSaleIdRef.current = '';
     }
   }, [sale, isOpen]);
 
@@ -464,8 +472,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                         <input
                           type="number"
                           min="0"
-                          value={item.quantity}
-                          onChange={(e) => handleUpdateItemQty(idx, Number(e.target.value))}
+                          placeholder="0"
+                          value={item.quantity === 0 ? '' : item.quantity}
+                          onChange={(e) => handleUpdateItemQty(idx, e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
                           className="w-20 px-2 py-1 bg-white border border-slate-300 rounded text-center font-bold text-slate-900"
                         />
                       </td>
@@ -474,8 +483,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                           type="number"
                           step="any"
                           min="0"
-                          value={item.unitPrice}
-                          onChange={(e) => handleUpdateItemPrice(idx, Number(e.target.value))}
+                          placeholder="0.00"
+                          value={item.unitPrice === 0 ? '' : item.unitPrice}
+                          onChange={(e) => handleUpdateItemPrice(idx, e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                           className="w-24 px-2 py-1 bg-white border border-slate-300 rounded text-right font-bold text-slate-900"
                         />
                       </td>
@@ -547,8 +557,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   min="0"
-                  value={cashSales}
-                  onChange={(e) => setCashSales(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={cashSales === 0 ? '' : cashSales}
+                  onChange={(e) => setCashSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900"
                 />
               </div>
@@ -562,8 +573,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   min="0"
-                  value={airtelDirectSales}
-                  onChange={(e) => setAirtelDirectSales(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={airtelDirectSales === 0 ? '' : airtelDirectSales}
+                  onChange={(e) => setAirtelDirectSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-red-900"
                 />
               </div>
@@ -576,8 +588,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   min="0"
-                  value={bankOrCardSales}
-                  onChange={(e) => setBankOrCardSales(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={bankOrCardSales === 0 ? '' : bankOrCardSales}
+                  onChange={(e) => setBankOrCardSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-semibold"
                 />
               </div>
@@ -590,8 +603,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   min="0"
-                  value={creditSales}
-                  onChange={(e) => setCreditSales(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={creditSales === 0 ? '' : creditSales}
+                  onChange={(e) => setCreditSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-semibold"
                 />
               </div>
@@ -637,8 +651,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                 <input
                   type="number"
                   step="any"
-                  value={openingFloat}
-                  onChange={(e) => setOpeningFloat(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={openingFloat === 0 ? '' : openingFloat}
+                  onChange={(e) => setOpeningFloat(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold"
                 />
               </div>
@@ -660,8 +675,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   required
-                  value={actualCashReceived}
-                  onChange={(e) => setActualCashReceived(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={actualCashReceived === 0 ? '' : actualCashReceived}
+                  onChange={(e) => setActualCashReceived(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-black text-slate-900"
                 />
               </div>
@@ -701,8 +717,9 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
                   type="number"
                   step="any"
                   min="0"
-                  value={cashSentToAirtelMoney}
-                  onChange={(e) => setCashSentToAirtelMoney(Number(e.target.value))}
+                  placeholder="0.00"
+                  value={cashSentToAirtelMoney === 0 ? '' : cashSentToAirtelMoney}
+                  onChange={(e) => setCashSentToAirtelMoney(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold text-slate-900"
                 />
               </div>

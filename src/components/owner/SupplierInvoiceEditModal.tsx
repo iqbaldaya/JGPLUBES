@@ -118,13 +118,13 @@ export const SupplierInvoiceEditModal: React.FC<SupplierInvoiceEditModalProps> =
         current.totalCost = (current.quantity || 1) * current.unitCost;
       }
     } else if (field === 'quantity') {
-      const qty = Math.max(1, Number(val) || 1);
-      current.quantity = qty;
-      current.totalCost = qty * (current.unitCost || 0);
+      const qty = val === '' ? 0 : parseInt(val, 10) || 0;
+      current.quantity = Math.max(0, qty);
+      current.totalCost = current.quantity * (current.unitCost || 0);
     } else if (field === 'unitCost') {
-      const cost = Math.max(0, Number(val) || 0);
-      current.unitCost = cost;
-      current.totalCost = (current.quantity || 0) * cost;
+      const cost = val === '' ? 0 : parseFloat(val) || 0;
+      current.unitCost = Math.max(0, cost);
+      current.totalCost = (current.quantity || 0) * current.unitCost;
     }
 
     updated[index] = current;
@@ -427,8 +427,9 @@ export const SupplierInvoiceEditModal: React.FC<SupplierInvoiceEditModalProps> =
                           <td className="py-2 px-3 text-right">
                             <input
                               type="number"
-                              min="1"
-                              value={item.quantity}
+                              min="0"
+                              placeholder="0"
+                              value={item.quantity === 0 ? '' : item.quantity}
                               onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                               className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg text-xs font-bold text-right text-stone-900 bg-white focus:ring-1 focus:ring-blue-500"
                             />
@@ -440,7 +441,8 @@ export const SupplierInvoiceEditModal: React.FC<SupplierInvoiceEditModalProps> =
                               type="number"
                               step="any"
                               min="0"
-                              value={item.unitCost}
+                              placeholder="0.00"
+                              value={item.unitCost === 0 ? '' : item.unitCost}
                               onChange={(e) => handleItemChange(index, 'unitCost', e.target.value)}
                               className="w-full px-2.5 py-1.5 border border-stone-300 rounded-lg text-xs font-mono text-right text-stone-900 bg-white focus:ring-1 focus:ring-blue-500"
                             />
@@ -533,9 +535,10 @@ export const SupplierInvoiceEditModal: React.FC<SupplierInvoiceEditModalProps> =
                     step="any"
                     required
                     min="0"
-                    value={amount}
+                    placeholder="0.00"
+                    value={amount === 0 ? '' : amount}
                     disabled={autoCalculateTotal && items.length > 0}
-                    onChange={(e) => setAmount(Number(e.target.value))}
+                    onChange={(e) => setAmount(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                     className="w-full pl-8 pr-4 py-2.5 border border-stone-300 rounded-xl text-lg font-black text-stone-900 bg-white disabled:bg-stone-100 focus:ring-2 focus:ring-amber-500"
                   />
                 </div>

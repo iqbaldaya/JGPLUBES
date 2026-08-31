@@ -496,6 +496,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [dbSyncError, setDbSyncError] = useState<string | null>(null);
   const [lastDbSyncTime, setLastDbSyncTime] = useState<Date | null>(null);
 
+  const shallowOrJsonEqual = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (a === null || b === null || a === undefined || b === undefined) return a === b;
+    try {
+      return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+      return false;
+    }
+  };
+
+  const setIfChanged = <T,>(setter: React.Dispatch<React.SetStateAction<T>>, newVal: T) => {
+    setter((prev) => (shallowOrJsonEqual(prev, newVal) ? prev : newVal));
+  };
+
   // Load and continuously sync state from PostgreSQL Backend (e.g. Render PostgreSQL)
   const syncWithDatabase = async () => {
     try {
@@ -506,56 +520,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setLastDbSyncTime(new Date());
 
         if (Array.isArray(data.branches) && data.branches.length > 0) {
-          setBranches(data.branches);
+          setIfChanged(setBranches, data.branches);
         }
         if (Array.isArray(data.products) && data.products.length > 0) {
-          setProducts(data.products);
+          setIfChanged(setProducts, data.products);
         }
         if (Array.isArray(data.stocks) && data.stocks.length > 0) {
-          setBranchStocks(data.stocks);
+          setIfChanged(setBranchStocks, data.stocks);
         } else if (Array.isArray(data.branchStocks) && data.branchStocks.length > 0) {
-          setBranchStocks(data.branchStocks);
+          setIfChanged(setBranchStocks, data.branchStocks);
         }
         if (Array.isArray(data.dailySales)) {
-          setDailySales(data.dailySales);
+          setIfChanged(setDailySales, data.dailySales);
         }
         if (Array.isArray(data.debtors)) {
-          setDebtors(data.debtors);
+          setIfChanged(setDebtors, data.debtors);
         }
         if (Array.isArray(data.debtorTransactions)) {
-          setDebtorTransactions(data.debtorTransactions);
+          setIfChanged(setDebtorTransactions, data.debtorTransactions);
         }
         if (Array.isArray(data.suppliers)) {
-          setSuppliers(data.suppliers);
+          setIfChanged(setSuppliers, data.suppliers);
         }
         if (Array.isArray(data.supplierTransactions)) {
-          setSupplierTransactions(data.supplierTransactions);
+          setIfChanged(setSupplierTransactions, data.supplierTransactions);
         }
         if (Array.isArray(data.stockReconciliations)) {
-          setStockReconciliations(data.stockReconciliations);
+          setIfChanged(setStockReconciliations, data.stockReconciliations);
         }
         if (Array.isArray(data.cashMovements)) {
-          setCashMovements(data.cashMovements);
+          setIfChanged(setCashMovements, data.cashMovements);
         }
         if (data.treasury) {
-          setOwnerTreasury(data.treasury);
+          setIfChanged(setOwnerTreasury, data.treasury);
         } else if (data.ownerTreasury) {
-          setOwnerTreasury(data.ownerTreasury);
+          setIfChanged(setOwnerTreasury, data.ownerTreasury);
         }
         if (Array.isArray(data.bankRecords)) {
-          setBankRecords(data.bankRecords);
+          setIfChanged(setBankRecords, data.bankRecords);
         }
         if (Array.isArray(data.cashRecords)) {
-          setCashRecords(data.cashRecords);
+          setIfChanged(setCashRecords, data.cashRecords);
         }
         if (Array.isArray(data.airtelRecords)) {
-          setAirtelRecords(data.airtelRecords);
+          setIfChanged(setAirtelRecords, data.airtelRecords);
         }
         if (Array.isArray(data.airtelMoneyRecords)) {
-          setAirtelMoneyRecords(data.airtelMoneyRecords);
+          setIfChanged(setAirtelMoneyRecords, data.airtelMoneyRecords);
         }
         if (Array.isArray(data.stockTransfers)) {
-          setStockTransfers(data.stockTransfers);
+          setIfChanged(setStockTransfers, data.stockTransfers);
         }
       } else if (data && !data.connected) {
         setIsDbConnected(false);
@@ -574,7 +588,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     syncWithDatabase();
-    const interval = setInterval(syncWithDatabase, 4000);
+    const interval = setInterval(syncWithDatabase, 8000);
     const handleFocus = () => syncWithDatabase();
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
