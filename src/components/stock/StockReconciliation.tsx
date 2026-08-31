@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StockReconciliation as StockReconciliationType } from '../../types';
 import {
@@ -45,8 +45,15 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'LUBRICANTS' | 'LPG'>('ALL');
-  const [reconcileCounts, setReconcileCounts] = useState<Record<string, { physicalQty: number; reason: string }>>({});
+  const [reconcileCounts, setReconcileCounts] = useState<
+    Record<string, { physicalQty: number | string; reason: string }>
+  >({});
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Clear pending input counts when branch changes
+  useEffect(() => {
+    setReconcileCounts({});
+  }, [selectedBranchId]);
 
   // Deletion modals state
   const [logToDelete, setLogToDelete] = useState<StockReconciliationType | null>(null);
@@ -59,7 +66,12 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
     );
     const systemQty = stock ? stock.quantity : 0;
     const countEntry = reconcileCounts[prod.id];
-    const physicalQty = countEntry !== undefined ? countEntry.physicalQty : systemQty;
+    const physicalQty =
+      countEntry !== undefined
+        ? countEntry.physicalQty === ''
+          ? 0
+          : Number(countEntry.physicalQty)
+        : systemQty;
     const variance = physicalQty - systemQty;
     const valueVariance = variance * prod.costPrice;
 
@@ -67,6 +79,8 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
       product: prod,
       systemQty,
       physicalQty,
+      rawPhysicalQty: countEntry !== undefined ? countEntry.physicalQty : systemQty,
+      hasExplicitCount: countEntry !== undefined,
       variance,
       valueVariance,
       reason: countEntry?.reason || 'Routine Physical Audit',
@@ -87,32 +101,53 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
   const totalVariancesDetected = filteredItems.filter((i) => i.variance !== 0).length;
   const netValueVariance = filteredItems.reduce((sum, i) => sum + i.valueVariance, 0);
 
-  const handlePhysicalCountChange = (productId: string, qty: number) => {
-    setReconcileCounts({
-      ...reconcileCounts,
+  const handlePhysicalCountChange = (productId: string, val: string | number) => {
+    if (val === '') {
+      setReconcileCounts((prev) => ({
+        ...prev,
+        [productId]: {
+          physicalQty: '',
+          reason: prev[productId]?.reason || 'Routine Physical Audit',
+        },
+      }));
+      return;
+    }
+    const num = Number(val);
+    const validQty = isNaN(num) ? 0 : Math.max(0, num);
+    setReconcileCounts((prev) => ({
+      ...prev,
       [productId]: {
-        physicalQty: Math.max(0, qty),
-        reason: reconcileCounts[productId]?.reason || 'Routine Physical Audit',
+        physicalQty: validQty,
+        reason: prev[productId]?.reason || 'Routine Physical Audit',
       },
-    });
+    }));
   };
 
   const handleReasonChange = (productId: string, reason: string) => {
+    const currentEntry = reconcileCounts[productId];
     const currentQty =
-      reconcileCounts[productId]?.physicalQty ??
-      (branchStocks.find((s) => s.branchId === selectedBranchId && s.productId === productId)?.quantity || 0);
+      currentEntry !== undefined
+        ? currentEntry.physicalQty
+        : (branchStocks.find((s) => s.branchId === selectedBranchId && s.productId === productId)?.quantity || 0);
 
-    setReconcileCounts({
-      ...reconcileCounts,
+    setReconcileCounts((prev) => ({
+      ...prev,
       [productId]: {
         physicalQty: currentQty,
         reason,
       },
-    });
+    }));
   };
 
   // Reconcile individual item
   const handleReconcileSingleItem = (item: typeof currentBranchStockItems[0]) => {
+    const finalPhysicalQty =
+      typeof item.physicalQty === 'number' && !isNaN(item.physicalQty)
+        ? Math.max(0, item.physicalQty)
+        : 0;
+    const finalVariance = finalPhysicalQty - item.systemQty;
+    const finalValueVariance = finalVariance * item.product.costPrice;
+
     createStockReconciliation(
       {
         branchId: selectedBranch.id,
@@ -127,29 +162,31 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
             category: item.product.category,
             unit: item.product.unit,
             systemQty: item.systemQty,
-            physicalQty: item.physicalQty,
-            varianceQty: item.variance,
+            physicalQty: finalPhysicalQty,
+            varianceQty: finalVariance,
             unitCost: item.product.costPrice,
-            varianceValue: item.valueVariance,
+            varianceValue: finalValueVariance,
             reason: 'NORMAL_TOLERANCE',
             notes: item.reason,
           },
         ],
-        totalPositiveVarianceQty: item.variance > 0 ? item.variance : 0,
-        totalNegativeVarianceQty: item.variance < 0 ? Math.abs(item.variance) : 0,
-        netVarianceValue: item.valueVariance,
+        totalPositiveVarianceQty: finalVariance > 0 ? finalVariance : 0,
+        totalNegativeVarianceQty: finalVariance < 0 ? Math.abs(finalVariance) : 0,
+        netVarianceValue: finalValueVariance,
       },
       true
     );
 
     // Clear count for this product
-    const updated = { ...reconcileCounts };
-    delete updated[item.product.id];
-    setReconcileCounts(updated);
+    setReconcileCounts((prev) => {
+      const updated = { ...prev };
+      delete updated[item.product.id];
+      return updated;
+    });
 
     setNotification({
       type: 'success',
-      message: `Stock for ${item.product.name} reconciled to ${item.physicalQty} ${item.product.unit}.`,
+      message: `Stock for ${item.product.name} reconciled to ${finalPhysicalQty} ${item.product.unit}.`,
     });
     setTimeout(() => setNotification(null), 3500);
   };
@@ -157,7 +194,7 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
   // Reconcile all adjusted items
   const handleReconcileAllAdjusted = () => {
     const itemsToReconcile = filteredItems.filter(
-      (item) => reconcileCounts[item.product.id] !== undefined && item.variance !== 0
+      (item) => item.hasExplicitCount && item.variance !== 0
     );
 
     if (itemsToReconcile.length === 0) {
@@ -168,20 +205,29 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
       return;
     }
 
-    const reconItems = itemsToReconcile.map((item) => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      productCode: item.product.code,
-      category: item.product.category,
-      unit: item.product.unit,
-      systemQty: item.systemQty,
-      physicalQty: item.physicalQty,
-      varianceQty: item.variance,
-      unitCost: item.product.costPrice,
-      varianceValue: item.valueVariance,
-      reason: 'NORMAL_TOLERANCE' as const,
-      notes: item.reason,
-    }));
+    const reconItems = itemsToReconcile.map((item) => {
+      const finalPhysicalQty =
+        typeof item.physicalQty === 'number' && !isNaN(item.physicalQty)
+          ? Math.max(0, item.physicalQty)
+          : 0;
+      const finalVariance = finalPhysicalQty - item.systemQty;
+      const finalValueVariance = finalVariance * item.product.costPrice;
+
+      return {
+        productId: item.product.id,
+        productName: item.product.name,
+        productCode: item.product.code,
+        category: item.product.category,
+        unit: item.product.unit,
+        systemQty: item.systemQty,
+        physicalQty: finalPhysicalQty,
+        varianceQty: finalVariance,
+        unitCost: item.product.costPrice,
+        varianceValue: finalValueVariance,
+        reason: 'NORMAL_TOLERANCE' as const,
+        notes: item.reason,
+      };
+    });
 
     const totalPositive = reconItems.reduce(
       (acc, i) => (i.varianceQty > 0 ? acc + i.varianceQty : acc),
@@ -392,21 +438,33 @@ export const StockReconciliation: React.FC<StockReconciliationProps> = ({ branch
                     </td>
 
                     <td className="py-3 px-4 text-center">
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.physicalQty}
-                        onChange={(e) =>
-                          handlePhysicalCountChange(item.product.id, Number(e.target.value))
-                        }
-                        className={`w-24 px-2.5 py-1.5 border rounded text-center font-black text-sm ${
-                          hasVariance
-                            ? isShortage
-                              ? 'border-red-400 bg-red-50 text-red-900'
-                              : 'border-blue-400 bg-blue-50 text-blue-900'
-                            : 'border-stone-300 bg-white text-stone-900'
-                        }`}
-                      />
+                      <div className="flex items-center justify-center space-x-1">
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.rawPhysicalQty}
+                          onChange={(e) =>
+                            handlePhysicalCountChange(item.product.id, e.target.value)
+                          }
+                          className={`w-20 px-2 py-1.5 border rounded text-center font-black text-sm ${
+                            hasVariance
+                              ? isShortage
+                                ? 'border-red-400 bg-red-50 text-red-900'
+                                : 'border-blue-400 bg-blue-50 text-blue-900'
+                              : 'border-stone-300 bg-white text-stone-900'
+                          }`}
+                        />
+                        {item.systemQty > 0 && item.physicalQty !== 0 && (
+                          <button
+                            type="button"
+                            title="Set physical count to 0"
+                            onClick={() => handlePhysicalCountChange(item.product.id, 0)}
+                            className="px-1.5 py-1 text-[10px] font-bold bg-stone-100 hover:bg-red-100 text-stone-600 hover:text-red-700 rounded border border-stone-200 transition"
+                          >
+                            0
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     <td className="py-3 px-4 text-right">

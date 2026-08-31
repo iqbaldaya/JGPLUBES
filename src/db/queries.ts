@@ -391,6 +391,30 @@ export async function updateStockReconciliation(reconId: string, updates: Partia
   }
 }
 
+export async function deleteStockReconciliation(reconId: string) {
+  try {
+    const res = await db.delete(stockReconciliations).where(eq(stockReconciliations.id, reconId)).returning();
+    return res[0];
+  } catch (error) {
+    console.error('Database query failed for deleteStockReconciliation:', error);
+    throw new Error('Failed to delete stock reconciliation', { cause: error });
+  }
+}
+
+export async function clearAllStockReconciliations(branchId?: string) {
+  try {
+    if (branchId) {
+      await db.delete(stockReconciliations).where(eq(stockReconciliations.branchId, branchId));
+    } else {
+      await db.delete(stockReconciliations);
+    }
+    return { success: true };
+  } catch (error) {
+    console.error('Database query failed for clearAllStockReconciliations:', error);
+    throw new Error('Failed to clear stock reconciliations', { cause: error });
+  }
+}
+
 // --- CASH MOVEMENTS ---
 export async function getAllCashMovements() {
   try {

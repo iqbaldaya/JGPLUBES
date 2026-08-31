@@ -199,6 +199,15 @@ export const api = {
     });
     return res.json();
   },
+  async deleteStockReconciliation(id: string) {
+    const res = await fetch(`/api/stock-reconciliations/${id}`, { method: 'DELETE' });
+    return res.json();
+  },
+  async clearStockReconciliations(branchId?: string) {
+    const url = branchId ? `/api/stock-reconciliations?branchId=${encodeURIComponent(branchId)}` : '/api/stock-reconciliations';
+    const res = await fetch(url, { method: 'DELETE' });
+    return res.json();
+  },
 
   // Cash Movements
   async createCashMovement(data: any) {

@@ -1,5 +1,5 @@
 // src/db/seed.ts
-import { db, createPool, resetPool } from './index.ts';
+import { db, createPool } from './index.ts';
 import {
   branches,
   products,
@@ -333,10 +333,7 @@ export async function ensureTablesExist() {
     try {
       await pool.query(tableSql);
     } catch (err: any) {
-      if (err?.message?.includes('EPIPE') || err?.message?.includes('ECONNRESET')) {
-        resetPool();
-        break;
-      }
+      console.warn('Table creation notice:', err?.message || err);
     }
   }
 
@@ -365,18 +362,27 @@ export async function ensureTablesExist() {
   }
 }
 
-export async function seedDatabaseIfEmpty() {
-  try {
-    await ensureTablesExist();
+let hasVerifiedSeeding = false;
 
-    // Check if branches exist
-    const branchCount = await db.select({ val: count() }).from(branches);
-    if (branchCount[0]?.val > 0) {
-      console.log('Database already contains records. Skipping seed.');
-      return;
-    }
+export async function seedDatabaseIfEmpty(maxRetries = 3) {
+  if (hasVerifiedSeeding) {
+    return;
+  }
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    attempt++;
+    try {
+      await ensureTablesExist();
 
-    console.log('Seeding PostgreSQL database with enterprise master data...');
+      // Check if branches exist
+      const branchCount = await db.select({ val: count() }).from(branches);
+      if (branchCount[0]?.val > 0) {
+        console.log('Database already contains records. Skipping seed.');
+        hasVerifiedSeeding = true;
+        return;
+      }
+
+      console.log('Seeding PostgreSQL database with enterprise master data...');
 
     // 1. Branches
     await db.insert(branches).values(
@@ -719,10 +725,14 @@ export async function seedDatabaseIfEmpty() {
     }
 
     console.log('Database seeding successfully completed.');
+    return;
   } catch (error: any) {
-    console.warn('Database seed notice:', error?.message || error);
-    if (error?.message?.includes('EPIPE') || error?.message?.includes('ECONNRESET')) {
-      resetPool();
+    console.warn(`Database seed attempt ${attempt} notice:`, error?.message || error);
+    if (attempt >= maxRetries) {
+      throw error;
     }
+    // Wait before retrying to let Cloud SQL proxy warm up
+    await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
+}
 }

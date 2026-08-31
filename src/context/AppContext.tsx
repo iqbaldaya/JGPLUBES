@@ -1591,27 +1591,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setBranchStocks((prev) => {
         const updated = [...prev];
         newRecon.items.forEach((item) => {
+          const qty = typeof item.physicalQty === 'number' && !isNaN(item.physicalQty) ? Math.max(0, item.physicalQty) : 0;
           const index = updated.findIndex(
             (s) => s.branchId === newRecon.branchId && s.productId === item.productId
           );
           if (index >= 0) {
             updated[index] = {
               ...updated[index],
-              quantity: item.physicalQty,
+              quantity: qty,
               lastUpdated: newRecon.date,
             };
           } else {
             updated.push({
               branchId: newRecon.branchId,
               productId: item.productId,
-              quantity: item.physicalQty,
+              quantity: qty,
               lastUpdated: newRecon.date,
             });
           }
         });
         return updated;
       });
+
+      // Persist stock adjustments (including zero!) to PostgreSQL database
+      newRecon.items.forEach((item) => {
+        const qty = typeof item.physicalQty === 'number' && !isNaN(item.physicalQty) ? Math.max(0, item.physicalQty) : 0;
+        api.upsertStock(newRecon.branchId, item.productId, qty).catch((err) => {
+          console.warn(`Database sync warning for upsertStock (${newRecon.branchId}, ${item.productId}):`, err);
+        });
+      });
     }
+
+    // Persist reconciliation audit log to database
+    api.createStockReconciliation(newRecon).catch((err) => {
+      console.warn('Database sync warning for createStockReconciliation:', err);
+    });
 
     setStockReconciliations((prev) => [newRecon, ...prev]);
     return newRecon;
@@ -1631,12 +1645,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (index >= 0) {
           updated[index] = {
             ...updated[index],
-            quantity: item.physicalQty,
+            quantity: typeof item.physicalQty === 'number' && !isNaN(item.physicalQty) ? Math.max(0, item.physicalQty) : 0,
             lastUpdated: target.date,
           };
+        } else {
+          updated.push({
+            branchId: target.branchId,
+            productId: item.productId,
+            quantity: typeof item.physicalQty === 'number' && !isNaN(item.physicalQty) ? Math.max(0, item.physicalQty) : 0,
+            lastUpdated: target.date,
+          });
         }
       });
       return updated;
+    });
+
+    // Persist stock adjustments (including zero!) to database
+    target.items.forEach((item) => {
+      const qty = typeof item.physicalQty === 'number' && !isNaN(item.physicalQty) ? Math.max(0, item.physicalQty) : 0;
+      api.upsertStock(target.branchId, item.productId, qty).catch((err) => {
+        console.warn(`Database sync warning for upsertStock (${target.branchId}, ${item.productId}):`, err);
+      });
+    });
+
+    const updates = {
+      status: 'APPROVED_ADJUSTED' as const,
+      reviewedBy: 'Owner / HQ Auditor',
+      reviewNotes: notes || 'Approved and physical stock synchronized.',
+    };
+
+    api.updateStockReconciliation(reconId, updates).catch((err) => {
+      console.warn('Database sync warning for updateStockReconciliation:', err);
     });
 
     setStockReconciliations((prev) =>
@@ -1644,9 +1683,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         r.id === reconId
           ? {
               ...r,
-              status: 'APPROVED_ADJUSTED',
-              reviewedBy: 'Owner / HQ Auditor',
-              reviewNotes: notes || 'Approved and physical stock synchronized.',
+              ...updates,
             }
           : r
       )
@@ -1654,14 +1691,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const rejectStockReconciliation = (reconId: string, notes?: string) => {
+    const updates = {
+      status: 'REJECTED' as const,
+      reviewedBy: 'Owner / HQ Auditor',
+      reviewNotes: notes || 'Rejected reconciliation. Recount required.',
+    };
+
+    api.updateStockReconciliation(reconId, updates).catch((err) => {
+      console.warn('Database sync warning for updateStockReconciliation:', err);
+    });
+
     setStockReconciliations((prev) =>
       prev.map((r) =>
         r.id === reconId
           ? {
               ...r,
-              status: 'REJECTED',
-              reviewedBy: 'Owner / HQ Auditor',
-              reviewNotes: notes || 'Rejected reconciliation. Recount required.',
+              ...updates,
             }
           : r
       )
@@ -1673,11 +1718,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!exists) {
       return { success: false, message: 'Stock reconciliation log not found.' };
     }
+    api.deleteStockReconciliation(reconId).catch((err) => {
+      console.warn('Database sync warning for deleteStockReconciliation:', err);
+    });
     setStockReconciliations((prev) => prev.filter((r) => r.id !== reconId));
     return { success: true, message: 'Reconciliation log deleted successfully.' };
   };
 
   const clearStockReconciliations = (branchId?: string) => {
+    api.clearStockReconciliations(branchId).catch((err) => {
+      console.warn('Database sync warning for clearStockReconciliations:', err);
+    });
     if (branchId) {
       setStockReconciliations((prev) => prev.filter((r) => r.branchId !== branchId));
     } else {

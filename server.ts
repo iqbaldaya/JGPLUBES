@@ -2,7 +2,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { isDatabaseConfigured, createPool, resetPool } from './src/db/index.ts';
+import { isDatabaseConfigured, createPool } from './src/db/index.ts';
 import { seedDatabaseIfEmpty } from './src/db/seed.ts';
 import {
   getAllBranches,
@@ -38,6 +38,8 @@ import {
   getAllStockReconciliations,
   createStockReconciliation,
   updateStockReconciliation,
+  deleteStockReconciliation,
+  clearAllStockReconciliations,
   getAllCashMovements,
   createCashMovement,
   updateCashMovement,
@@ -182,9 +184,6 @@ app.get('/api/bootstrap', async (req, res) => {
     });
   } catch (error: any) {
     console.warn('Bootstrap database query warning:', error.message || error);
-    if (error?.message?.includes('EPIPE') || error?.message?.includes('ECONNRESET')) {
-      resetPool();
-    }
     res.json({
       connected: false,
       isConfigured: true,
@@ -505,6 +504,25 @@ app.post('/api/stock-reconciliations', async (req, res) => {
 app.patch('/api/stock-reconciliations/:id', async (req, res) => {
   try {
     const data = await updateStockReconciliation(req.params.id, req.body);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/stock-reconciliations/:id', async (req, res) => {
+  try {
+    const data = await deleteStockReconciliation(req.params.id);
+    res.json(data || { success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/stock-reconciliations', async (req, res) => {
+  try {
+    const branchId = req.query.branchId as string | undefined;
+    const data = await clearAllStockReconciliations(branchId);
     res.json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
