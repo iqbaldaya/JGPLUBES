@@ -292,8 +292,17 @@ export const SupplierLedger: React.FC = () => {
   };
 
   const handleOpenAddInvoice = (preSelectedSupplierId?: string) => {
+    if (suppliers.length === 0) {
+      setNotification({
+        type: 'error',
+        message: 'No supplier accounts found. Please add a supplier first before recording an invoice.',
+      });
+      setIsAddingSupplier(true);
+      return;
+    }
+
     const targetSuppId = preSelectedSupplierId || (selectedSupplierId !== 'ALL' ? selectedSupplierId : suppliers[0]?.id || '');
-    const targetBranchId = (selectedBranchId !== 'ALL' ? selectedBranchId : branches[0]?.id) || branches[0]?.id || '';
+    const targetBranchId = branches[0]?.id || '';
     const defaultProd = products[0];
     const initialItems = defaultProd
       ? [{ productId: defaultProd.id, quantity: 10, unitCost: Number(defaultProd.costPrice) || 0 }]
@@ -301,7 +310,7 @@ export const SupplierLedger: React.FC = () => {
     const initTotal = initialItems.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitCost) || 0), 0);
 
     setNewInvoiceData({
-      supplierId: targetSuppId,
+      supplierId: targetSuppId || suppliers[0]?.id || '',
       branchId: targetBranchId,
       referenceNo: `INV-${Date.now().toString().slice(-5)}`,
       date: new Date().toISOString().split('T')[0],
