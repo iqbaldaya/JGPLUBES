@@ -2,7 +2,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { isDatabaseConfigured, createPool } from './src/db/index.ts';
+import { isDatabaseConfigured, createPool, resetPool } from './src/db/index.ts';
 import { seedDatabaseIfEmpty } from './src/db/seed.ts';
 import {
   getAllBranches,
@@ -182,7 +182,10 @@ app.get('/api/bootstrap', async (req, res) => {
     });
   } catch (error: any) {
     console.warn('Bootstrap database query warning:', error.message || error);
-    res.status(503).json({
+    if (error?.message?.includes('EPIPE') || error?.message?.includes('ECONNRESET')) {
+      resetPool();
+    }
+    res.json({
       connected: false,
       isConfigured: true,
       error: error.message || 'Database connection error',

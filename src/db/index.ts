@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema.ts';
 
-// Add global connection pool caching to persist across hot-reloads
+// Global connection pool caching to persist across hot-reloads
 declare global {
   var _postgresPool: Pool | undefined;
 }
@@ -19,68 +19,92 @@ export const isDatabaseConfigured = (): boolean => {
   return false;
 };
 
-function getSSLConfig(connectionString: string) {
-  const cleanStr = connectionString.trim().toLowerCase();
+function getCleanConnectionStringAndSSL(rawUrl: string): { connectionString: string; ssl: any } {
+  let cleanStr = rawUrl.trim();
+  let host = '';
 
-  // Local connections: No SSL
-  if (cleanStr.includes('localhost') || cleanStr.includes('127.0.0.1')) {
-    return false;
-  }
-
-  // Explicitly disabled
-  if (cleanStr.includes('sslmode=disable')) {
-    return false;
-  }
-
-  // Render Internal URL check (e.g. postgres://user:pass@dpg-xxxxx-a:5432/dbname)
-  // Internal connections in Render's private network do not use SSL
   try {
-    const url = new URL(connectionString);
-    const host = url.hostname.toLowerCase();
-    if (host.startsWith('dpg-') && !host.includes('.')) {
-      return false;
-    }
-    if (host.endsWith('.internal')) {
-      return false;
-    }
+    const parsed = new URL(cleanStr);
+    host = parsed.hostname.toLowerCase();
+    // Remove conflicting query params so pg doesn't override explicit SSL configuration
+    parsed.searchParams.delete('sslmode');
+    parsed.searchParams.delete('ssl');
+    cleanStr = parsed.toString();
   } catch {
-    if (/dpg-[a-z0-9]+:5432/i.test(cleanStr) && !cleanStr.includes('.render.com')) {
-      return false;
+    // If URL parsing fails, inspect string directly
+    const match = cleanStr.match(/@([^:/]+)/);
+    if (match) {
+      host = match[1].toLowerCase();
     }
   }
 
-  // External URLs (e.g. *.render.com, neon, supabase, aws) require SSL
-  return { rejectUnauthorized: false };
+  // 1. Local connections: No SSL
+  if (host === 'localhost' || host === '127.0.0.1' || cleanStr.includes('localhost') || cleanStr.includes('127.0.0.1')) {
+    return { connectionString: cleanStr, ssl: false };
+  }
+
+  // 2. Explicit disable flag
+  if (rawUrl.toLowerCase().includes('sslmode=disable')) {
+    return { connectionString: cleanStr, ssl: false };
+  }
+
+  // 3. Render Internal URL (e.g. host is dpg-xxxxxx-a without dots, or ends with .internal)
+  if ((host.startsWith('dpg-') && !host.includes('.')) || host.endsWith('.internal')) {
+    return { connectionString: cleanStr, ssl: false };
+  }
+
+  // 4. External Render PostgreSQL, AWS, Supabase, Neon, etc. require SSL with loose cert check
+  return {
+    connectionString: cleanStr,
+    ssl: { rejectUnauthorized: false },
+  };
 }
 
-// Function to create or retrieve the connection pool using the object method
+export const resetPool = () => {
+  if (global._postgresPool) {
+    try {
+      global._postgresPool.end().catch(() => {});
+    } catch {}
+    global._postgresPool = undefined;
+  }
+};
+
+// Function to create or retrieve the connection pool
 export const createPool = (): Pool => {
   if (!global._postgresPool) {
-    const connectionString = process.env.DATABASE_URL;
+    const rawConnectionString = process.env.DATABASE_URL;
     const isConfigured = isDatabaseConfigured();
 
-    const poolConfig = isConfigured && connectionString
-      ? {
-          connectionString,
-          ssl: getSSLConfig(connectionString),
-          max: 10,
-          connectionTimeoutMillis: 10000,
-          idleTimeoutMillis: 30000,
-        }
-      : {
-          host: process.env.SQL_HOST || '127.0.0.1',
-          user: process.env.SQL_USER || 'postgres',
-          password: process.env.SQL_PASSWORD || 'postgres',
-          database: process.env.SQL_DB_NAME || 'postgres',
-          max: 10,
-          connectionTimeoutMillis: 5000,
-        };
+    if (isConfigured && rawConnectionString) {
+      const { connectionString, ssl } = getCleanConnectionStringAndSSL(rawConnectionString);
+      global._postgresPool = new Pool({
+        connectionString,
+        ssl,
+        max: 10,
+        connectionTimeoutMillis: 10000,
+        idleTimeoutMillis: 30000,
+        keepAlive: true,
+        keepAliveInitialDelayMillis: 10000,
+      });
+    } else {
+      global._postgresPool = new Pool({
+        host: process.env.SQL_HOST || '127.0.0.1',
+        user: process.env.SQL_USER || 'postgres',
+        password: process.env.SQL_PASSWORD || 'postgres',
+        database: process.env.SQL_DB_NAME || 'postgres',
+        max: 5,
+        connectionTimeoutMillis: 5000,
+        idleTimeoutMillis: 10000,
+      });
+    }
 
-    global._postgresPool = new Pool(poolConfig);
-
-    // Prevent unhandled pool-level errors from crashing the application
+    // Prevent unhandled pool-level errors from crashing Node process
     global._postgresPool.on('error', (err) => {
-      console.warn('PostgreSQL pool event:', err.message);
+      console.warn('PostgreSQL pool connection notice:', err?.message || err);
+      // Reset pool on broken pipe or connection termination so next query creates a fresh client
+      if (err?.message?.includes('EPIPE') || err?.message?.includes('ECONNRESET')) {
+        resetPool();
+      }
     });
   }
   return global._postgresPool;
@@ -92,5 +116,6 @@ const pool = createPool();
 // Initialize Drizzle with the pool and schema.
 export const db = drizzle(pool, { schema });
 export { schema };
+
 
 

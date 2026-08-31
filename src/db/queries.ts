@@ -42,9 +42,9 @@ export async function getOrCreateUser(uid: string, email: string, name?: string,
       })
       .returning();
     return inserted[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in getOrCreateUser:', error);
-    throw new Error('User sync failed', { cause: error });
+    throw new Error(error?.message || 'User sync failed', { cause: error });
   }
 }
 
@@ -52,9 +52,9 @@ export async function getOrCreateUser(uid: string, email: string, name?: string,
 export async function getAllBranches() {
   try {
     return await db.select().from(branches).orderBy(branches.name);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for getAllBranches:', error);
-    throw new Error('Failed to retrieve branches', { cause: error });
+    throw new Error(error?.message || 'Failed to retrieve branches', { cause: error });
   }
 }
 
@@ -62,9 +62,9 @@ export async function createBranch(branchData: typeof branches.$inferInsert) {
   try {
     const res = await db.insert(branches).values(branchData).returning();
     return res[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for createBranch:', error);
-    throw new Error('Failed to create branch', { cause: error });
+    throw new Error(error?.message || 'Failed to create branch', { cause: error });
   }
 }
 
@@ -72,9 +72,9 @@ export async function updateBranch(branchId: string, updates: Partial<typeof bra
   try {
     const res = await db.update(branches).set(updates).where(eq(branches.id, branchId)).returning();
     return res[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for updateBranch:', error);
-    throw new Error('Failed to update branch', { cause: error });
+    throw new Error(error?.message || 'Failed to update branch', { cause: error });
   }
 }
 
@@ -82,9 +82,9 @@ export async function deleteBranch(branchId: string) {
   try {
     await db.delete(branches).where(eq(branches.id, branchId));
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for deleteBranch:', error);
-    throw new Error('Failed to delete branch', { cause: error });
+    throw new Error(error?.message || 'Failed to delete branch', { cause: error });
   }
 }
 
@@ -92,9 +92,9 @@ export async function deleteBranch(branchId: string) {
 export async function getAllProducts() {
   try {
     return await db.select().from(products).orderBy(products.category, products.name);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for getAllProducts:', error);
-    throw new Error('Failed to retrieve products', { cause: error });
+    throw new Error(error?.message || 'Failed to retrieve products', { cause: error });
   }
 }
 
@@ -102,9 +102,9 @@ export async function createProduct(productData: typeof products.$inferInsert) {
   try {
     const res = await db.insert(products).values(productData).returning();
     return res[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for createProduct:', error);
-    throw new Error('Failed to create product', { cause: error });
+    throw new Error(error?.message || 'Failed to create product', { cause: error });
   }
 }
 
@@ -112,9 +112,9 @@ export async function updateProduct(productId: string, updates: Partial<typeof p
   try {
     const res = await db.update(products).set(updates).where(eq(products.id, productId)).returning();
     return res[0];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for updateProduct:', error);
-    throw new Error('Failed to update product', { cause: error });
+    throw new Error(error?.message || 'Failed to update product', { cause: error });
   }
 }
 
@@ -122,9 +122,9 @@ export async function deleteProduct(productId: string) {
   try {
     await db.delete(products).where(eq(products.id, productId));
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for deleteProduct:', error);
-    throw new Error('Failed to delete product', { cause: error });
+    throw new Error(error?.message || 'Failed to delete product', { cause: error });
   }
 }
 
@@ -132,9 +132,9 @@ export async function deleteProduct(productId: string) {
 export async function getAllBranchStocks() {
   try {
     return await db.select().from(branchStocks);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query failed for getAllBranchStocks:', error);
-    throw new Error('Failed to retrieve branch stocks', { cause: error });
+    throw new Error(error?.message || 'Failed to retrieve branch stocks', { cause: error });
   }
 }
 

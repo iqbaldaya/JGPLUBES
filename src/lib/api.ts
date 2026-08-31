@@ -1,17 +1,25 @@
 // src/lib/api.ts
 export const api = {
   async bootstrap() {
-    const res = await fetch('/api/bootstrap');
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to load data from PostgreSQL server');
+    try {
+      const res = await fetch('/api/bootstrap');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        return { connected: false, isConfigured: true, error: errData.error || 'Database unavailable' };
+      }
+      return await res.json();
+    } catch (err: any) {
+      return { connected: false, isConfigured: false, error: err?.message || 'Network request failed' };
     }
-    return res.json();
   },
 
   async checkDbStatus() {
-    const res = await fetch('/api/db-status');
-    return res.json();
+    try {
+      const res = await fetch('/api/db-status');
+      return await res.json();
+    } catch (err: any) {
+      return { connected: false, isConfigured: false, error: err?.message || 'Status check failed' };
+    }
   },
 
   // Branches
