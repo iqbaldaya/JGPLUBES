@@ -108,7 +108,7 @@ export const BranchOverview: React.FC<BranchOverviewProps> = ({ branchId, onNavi
               <span>Phone: <strong className="text-slate-200 font-mono">{activeBranch.phone}</strong></span>
             </div>
             <div className="flex items-center space-x-1.5">
-              <span>Opening Float: <strong className="text-blue-400 font-mono font-bold">K{activeBranch.openingCashFloat}</strong></span>
+              
             </div>
           </div>
         </div>

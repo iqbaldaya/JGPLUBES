@@ -284,9 +284,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <span>•</span>
             <span>Till: <strong className="text-slate-700 font-mono">{currentBranch.airtelMerchantNumber}</strong></span>
-            <span>•</span>
-            <span>Opening Cash Float: <strong className="text-slate-700 font-mono">K{currentBranch.openingCashFloat}</strong></span>
-          </div>
+            </div>
           <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
             Site ID: {currentBranch.id}
           </span>

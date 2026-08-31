@@ -285,7 +285,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
         {role === 'BRANCH_MANAGER' && currentBranch && (
           <div className="mt-2 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span className="truncate">Champ: <strong className="text-slate-200">{currentBranch.lubesChamp}</strong></span>
-            <span className="font-mono text-[10px] text-blue-400">K{currentBranch.openingCashFloat} Float</span>
+            
           </div>
         )}
       </div>

@@ -380,19 +380,7 @@ export const BranchManager: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Opening Cash Float (K)
-                  </label>
-                  <input
-                    id="input-new-branch-float"
-                    type="number"
-                    min="0"
-                    value={newBranchData.openingCashFloat}
-                    onChange={(e) => setNewBranchData({ ...newBranchData, openingCashFloat: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm"
-                  />
-                </div>
+
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">

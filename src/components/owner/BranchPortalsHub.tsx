@@ -262,7 +262,7 @@ export const BranchPortalsHub: React.FC = () => {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-400 font-medium">
               <span>Lubes Champ: <strong className="text-stone-200">{selectedBranch.lubesChamp}</strong></span>
               <span>Phone: <strong className="text-stone-200 font-mono">{selectedBranch.phone}</strong></span>
-              <span>Opening Float: <strong className="text-blue-400 font-mono">K{selectedBranch.openingCashFloat}</strong></span>
+              
               <span>Airtel Till: <strong className="text-red-400 font-mono">{selectedBranch.airtelMerchantNumber || 'N/A'}</strong></span>
             </div>
           </div>

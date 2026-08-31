@@ -216,8 +216,7 @@ export const LoginPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-400 truncate">
-                      📍 {selectedBranch.location || 'Station Address'} • Float: K
-                      {selectedBranch.openingCashFloat}
+                      📍 {selectedBranch.location || 'Station Address'}
                     </div>
                   </div>
                 )}

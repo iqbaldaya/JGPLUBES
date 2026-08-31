@@ -605,7 +605,7 @@ export const SalesHistory: React.FC<SalesHistoryProps> = ({ branchIdFilter }) =>
                             <div>
                               <div className="font-semibold text-slate-500">Drawer Position:</div>
                               <div className="mt-1 space-y-0.5">
-                                <div>Opening Float: <strong>K{sale.openingFloat}</strong></div>
+                                
                                 <div>Airtel Deposit: <strong>K{sale.cashSentToAirtelMoney}</strong></div>
                                 <div>Petty Cash: <strong>K{sale.totalPettyExpenses}</strong></div>
                                 <div>Closing Drawer: <strong>K{sale.closingCashInDrawer}</strong></div>

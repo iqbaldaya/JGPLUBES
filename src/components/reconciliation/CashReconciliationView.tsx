@@ -88,8 +88,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
   const [editAirtelSent, setEditAirtelSent] = useState<string>('');
   const [editAirtelRef, setEditAirtelRef] = useState<string>('');
   const [editAirtelSenderPhone, setEditAirtelSenderPhone] = useState<string>('');
-  const [editOpeningFloat, setEditOpeningFloat] = useState<string>('');
-  const [editPettyExpenses, setEditPettyExpenses] = useState<string>('');
+    const [editPettyExpenses, setEditPettyExpenses] = useState<string>('');
   const [editNotes, setEditNotes] = useState<string>('');
   const [editStatus, setEditStatus] = useState<'SUBMITTED' | 'VERIFIED' | 'DISCREPANCY_FLAGGED'>('VERIFIED');
   const [editShiftError, setEditShiftError] = useState<string | null>(null);
@@ -228,8 +227,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
     setEditAirtelSent(String(sale.cashSentToAirtelMoney ?? '0'));
     setEditAirtelRef(sale.airtelMoneyTxRef || '');
     setEditAirtelSenderPhone(sale.airtelMoneySenderPhone || '');
-    setEditOpeningFloat(String(sale.openingFloat ?? '0'));
-    setEditPettyExpenses(String(sale.totalPettyExpenses ?? '0'));
+        setEditPettyExpenses(String(sale.totalPettyExpenses ?? '0'));
     setEditNotes(sale.notes || '');
     setEditStatus(sale.status || 'VERIFIED');
     setEditShiftError(null);
@@ -243,8 +241,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
     const actual = parseFloat(editActualCash) || 0;
     const expected = parseFloat(editExpectedCash) || 0;
     const airtel = parseFloat(editAirtelSent) || 0;
-    const opening = parseFloat(editOpeningFloat) || 0;
-    const petty = parseFloat(editPettyExpenses) || 0;
+        const petty = parseFloat(editPettyExpenses) || 0;
 
     const computedVariance = actual - expected;
     const computedClosing = opening + actual - airtel - petty;
@@ -256,7 +253,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
       cashSentToAirtelMoney: airtel,
       airtelMoneyTxRef: editAirtelRef.trim(),
       airtelMoneySenderPhone: editAirtelSenderPhone.trim(),
-      openingFloat: opening,
+      openingFloat: 0,
       totalPettyExpenses: petty,
       closingCashInDrawer: computedClosing,
       notes: editNotes.trim(),
@@ -1345,8 +1342,7 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
                 const act = parseFloat(editActualCash) || 0;
                 const exp = parseFloat(editExpectedCash) || 0;
                 const air = parseFloat(editAirtelSent) || 0;
-                const opn = parseFloat(editOpeningFloat) || 0;
-                const pet = parseFloat(editPettyExpenses) || 0;
+                                const pet = parseFloat(editPettyExpenses) || 0;
                 const variance = act - exp;
                 const closing = opn + act - air - pet;
 
@@ -1449,19 +1445,6 @@ export const CashReconciliationView: React.FC<CashReconciliationViewProps> = ({
                   />
                 </div>
 
-                {/* Opening Cash Float */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Opening Cash Float (K)
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={editOpeningFloat}
-                    onChange={(e) => setEditOpeningFloat(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
-                  />
-                </div>
 
                 {/* Petty Cash Expenses */}
                 <div>

@@ -51,8 +51,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
   const [creditSales, setCreditSales] = useState<number>(0);
 
   // Cash Reconciliation & Airtel Transfer
-  const [openingFloat, setOpeningFloat] = useState<number>(1000);
-  const [actualCashReceived, setActualCashReceived] = useState<number>(0);
+    const [actualCashReceived, setActualCashReceived] = useState<number>(0);
   const [cashSentToAirtelMoney, setCashSentToAirtelMoney] = useState<number>(0);
   const [airtelTxRef, setAirtelTxRef] = useState<string>('');
   const [airtelSenderPhone, setAirtelSenderPhone] = useState<string>('');
@@ -94,8 +93,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
       setBankOrCardSales(sale.paymentBreakdown?.bankOrCardSales || 0);
       setCreditSales(sale.paymentBreakdown?.creditSales || 0);
 
-      setOpeningFloat(sale.openingFloat || 0);
-      setActualCashReceived(sale.actualCashReceived || 0);
+            setActualCashReceived(sale.actualCashReceived || 0);
       setCashSentToAirtelMoney(sale.cashSentToAirtelMoney || 0);
       setAirtelTxRef(sale.airtelMoneyTxRef || '');
       setAirtelSenderPhone(sale.airtelMoneySenderPhone || '');
@@ -127,7 +125,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
   const cashVariance = actualCashReceived - expectedCashFromSales;
   const totalPettyExpenses = pettyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
   const closingCashInDrawer =
-    openingFloat + actualCashReceived - cashSentToAirtelMoney - totalPettyExpenses;
+    actualCashReceived - cashSentToAirtelMoney - totalPettyExpenses;
 
   // Auto-sync Lubes Champ when branch changes
   const handleBranchChange = (newBranchId: string) => {
@@ -269,7 +267,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
           bankOrCardSales,
           creditSales,
         },
-        openingFloat,
+        openingFloat: 0,
         expectedCashFromSales,
         actualCashReceived,
         cashVariance,
@@ -351,7 +349,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
           )}
 
           {/* Section 1: Site, Date, Champ */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs">
             <div>
               <label className="block font-bold text-slate-700 uppercase mb-1">
                 Branch Site *
@@ -548,7 +546,7 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Cash Sales (K)
@@ -643,20 +641,8 @@ export const SalesAdjustmentModal: React.FC<SalesAdjustmentModalProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Opening Float (K)
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="0.00"
-                  value={openingFloat === 0 ? '' : openingFloat}
-                  onChange={(e) => setOpeningFloat(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-bold"
-                />
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">

@@ -1077,7 +1077,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
               Closing Drawer Cash: <strong className="text-slate-900 font-bold">K{closingCashInDrawer.toFixed(2)}</strong>
             </div>
             <div>
-              (Opening Float K{0} + Counted Cash K{actualCashReceived} - Airtel K{cashSentToAirtelMoney} - Petty K{totalPettyExpenses})
+              (Counted Cash K{actualCashReceived} - Airtel K{cashSentToAirtelMoney} - Petty K{totalPettyExpenses})
             </div>
           </div>
 
