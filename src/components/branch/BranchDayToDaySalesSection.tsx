@@ -72,7 +72,7 @@ export const BranchDayToDaySalesSection: React.FC<BranchDayToDaySalesSectionProp
   title,
   subtitle,
 }) => {
-  const { branches, dailySales } = useApp();
+  const { branches, dailySales, role } = useApp();
 
   const activeBranch = branches.find((b) => b.id === branchId) || branches[0];
 
@@ -786,6 +786,7 @@ export const BranchDayToDaySalesSection: React.FC<BranchDayToDaySalesSectionProp
                                     <Edit3 className="w-3 h-3" />
                                     <span>Edit Shift</span>
                                   </button>
+                                  {role === 'OWNER' && (
                                   <button
                                     onClick={() => setDeletingSale(sale)}
                                     className="p-1 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-700 rounded text-xs border border-slate-200 transition cursor-pointer"
@@ -793,6 +794,7 @@ export const BranchDayToDaySalesSection: React.FC<BranchDayToDaySalesSectionProp
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
+                                )}
                                 </div>
                               </div>
 
@@ -973,6 +975,7 @@ export const BranchDayToDaySalesSection: React.FC<BranchDayToDaySalesSectionProp
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
+                        {role === 'OWNER' && (
                         <button
                           onClick={() => setDeletingSale(sale)}
                           className="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-700 rounded-lg text-xs transition cursor-pointer"
@@ -980,6 +983,7 @@ export const BranchDayToDaySalesSection: React.FC<BranchDayToDaySalesSectionProp
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                      )}
                       </div>
                     </div>
                   </div>
