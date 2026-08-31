@@ -25,6 +25,7 @@ import {
   CalendarDays,
   Settings,
   Database,
+  Receipt,
   LogOut,
 } from 'lucide-react';
 
@@ -142,6 +143,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
     { id: 'cash-records', label: 'Cash Records (On Hand)', icon: Wallet, group: 'Treasury Ledgers' },
     { id: 'airtel-records', label: 'Airtel Money Records', icon: Smartphone, group: 'Treasury Ledgers' },
     { id: 'debtors', label: 'Debtors (Credit Sales)', icon: UserCheck, group: 'Treasury Ledgers' },
+    { id: 'expenses', label: 'Expenses Ledger', icon: Receipt, group: 'Treasury Ledgers' },
     { id: 'supplier-ledger', label: 'Supplier Accounts', icon: Truck, group: 'Reconciliation' },
     { id: 'net-value', label: 'Business Net Value (Debit-Credit)', icon: Scale, group: 'Analytics', highlight: true },
     { id: 'quarterly-reports', label: 'Performance Reports', icon: FileText, group: 'Analytics', highlight: true },

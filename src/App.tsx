@@ -16,6 +16,7 @@ import { BankRecordsSection } from './components/owner/BankRecordsSection';
 import { CashRecordsSection } from './components/owner/CashRecordsSection';
 import { AirtelMoneyRecordsSection } from './components/owner/AirtelMoneyRecordsSection';
 import { DebtorsSection } from './components/owner/DebtorsSection';
+import ExpensesLedger from './components/owner/ExpensesLedger';
 import { TreasuryLedgersView } from './components/owner/TreasuryLedgersView';
 import { SettingsSection } from './components/owner/SettingsSection';
 import { StockTransfersSection } from './components/stock/StockTransfersSection';
@@ -126,6 +127,8 @@ const AuthenticatedApp: React.FC = () => {
 
         case 'debtors':
           return <DebtorsSection onNavigateTab={setActiveTab} />;
+        case 'expenses':
+          return <ExpensesLedger />;
 
         case 'treasury-ledgers':
           return <TreasuryLedgersView onNavigateTab={setActiveTab} />;

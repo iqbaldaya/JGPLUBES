@@ -85,8 +85,8 @@ export interface DailySalesRecord {
     creditSales: number;
   };
   // Cash Reconciliation for the Day
-  openingFloat: number;
-  expectedCashFromSales: number;
+  openingFloat?: number;
+  expectedCashFromSales?: number;
   actualCashReceived: number;
   cashVariance: number; // actualCashReceived - expectedCashFromSales
   cashSentToAirtelMoney: number;
@@ -95,7 +95,7 @@ export interface DailySalesRecord {
   airtelMoneyReceiver: string;
   pettyCashExpenses: PettyCashExpense[];
   totalPettyExpenses: number;
-  closingCashInDrawer: number;
+  closingCashInDrawer?: number;
   notes?: string;
   status: 'SUBMITTED' | 'VERIFIED' | 'DISCREPANCY_FLAGGED';
   // Posting and Approval Control Fields
@@ -387,3 +387,15 @@ export interface StockTransfer {
   createdAt: string;
 }
 
+
+export interface Expense {
+  id: string;
+  branchId: string;
+  branchName: string;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  reference?: string;
+  createdAt: string;
+}

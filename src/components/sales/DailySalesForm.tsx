@@ -74,8 +74,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
   const [selectedDebtorId, setSelectedDebtorId] = useState<string>('');
 
   // Cash Reconciliation & Airtel Transfer
-  const [openingFloat, setOpeningFloat] = useState<number>(selectedBranch?.openingCashFloat || 1000);
-  const [actualCashReceived, setActualCashReceived] = useState<number>(0);
+    const [actualCashReceived, setActualCashReceived] = useState<number>(0);
   const [cashSentToAirtelMoney, setCashSentToAirtelMoney] = useState<number>(0);
   const [airtelTxRef, setAirtelTxRef] = useState<string>('');
   const [airtelSenderPhone, setAirtelSenderPhone] = useState<string>(selectedBranch?.phone || '');
@@ -144,8 +143,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       setBankOrCardSales(existingRecord.paymentBreakdown?.bankOrCardSales || 0);
       setCreditSales(existingRecord.paymentBreakdown?.creditSales || 0);
       setSelectedDebtorId(existingRecord.creditDebtorId || (debtors[0]?.id || ''));
-      setOpeningFloat(existingRecord.openingFloat ?? (selectedBranch?.openingCashFloat || 1000));
-      setActualCashReceived(existingRecord.actualCashReceived || 0);
+            setActualCashReceived(existingRecord.actualCashReceived || 0);
       setCashSentToAirtelMoney(existingRecord.cashSentToAirtelMoney || 0);
       setAirtelTxRef(existingRecord.airtelMoneyTxRef || '');
       setAirtelSenderPhone(existingRecord.airtelMoneySenderPhone || selectedBranch?.phone || '');
@@ -163,7 +161,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       setBankOrCardSales(0);
       setCreditSales(0);
       setSelectedDebtorId(debtors[0]?.id || '');
-      setOpeningFloat(selectedBranch?.openingCashFloat || 1000);
+      
       setActualCashReceived(0);
       setCashSentToAirtelMoney(0);
       setAirtelTxRef('');
@@ -181,26 +179,18 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
   const totalCostAmount = items.reduce((sum, item) => sum + item.totalCost, 0);
   const grossProfit = totalSalesAmount - totalCostAmount;
 
-  // Auto-sync cash sales when items change (ONLY if user hasn't manually edited the cash figure)
-  useEffect(() => {
-    if (!isLockedForBranch && (!existingRecord || existingRecord.postingStatus === 'DRAFT' || existingRecord.postingStatus === 'REJECTED')) {
-      if (!hasManuallyEditedCashRef.current) {
-        const nonCash = airtelDirectSales + bankOrCardSales + creditSales;
-        const computedCash = Math.max(0, totalSalesAmount - nonCash);
-        setCashSales(computedCash);
-        if (!hasManuallyEditedActualCashRef.current) {
-          setActualCashReceived(computedCash);
-        }
-      }
-    }
-  }, [totalSalesAmount, airtelDirectSales, bankOrCardSales, creditSales, isLockedForBranch, existingRecord]);
-
-  // Expected Cash & Variance
-  const expectedCashFromSales = cashSales;
-  const cashVariance = actualCashReceived - expectedCashFromSales;
+  // Variance Calculation
   const totalPettyExpenses = pettyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const closingCashInDrawer =
-    openingFloat + actualCashReceived - cashSentToAirtelMoney - totalPettyExpenses;
+  const totalAccounted = actualCashReceived + airtelDirectSales + creditSales + totalPettyExpenses;
+  const cashVariance = totalSalesAmount - totalAccounted; // Positive = Short, Negative = Excess
+  const closingCashInDrawer = actualCashReceived - cashSentToAirtelMoney;
+  
+  // Set default Debtor if credit sales exist but none selected
+  useEffect(() => {
+    if (creditSales > 0 && !selectedDebtorId && debtors.length > 0) {
+      setSelectedDebtorId(debtors[0].id);
+    }
+  }, [creditSales, debtors, selectedDebtorId]);
 
   // Handle adding an item to the sale
   const handleAddItem = (productId: string) => {
@@ -298,15 +288,15 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
       totalCostAmount,
       grossProfit,
       paymentBreakdown: {
-        cashSales,
+        cashSales: actualCashReceived,
         airtelMoneyDirectSales: airtelDirectSales,
         bankOrCardSales,
         creditSales,
       },
       creditDebtorId: creditSales > 0 ? selectedDebtorId : undefined,
       creditDebtorName: creditSales > 0 ? selectedDebtor?.name : undefined,
-      openingFloat,
-      expectedCashFromSales,
+      0: 0,
+      expectedCashFromSales: 0,
       actualCashReceived,
       cashVariance,
       cashSentToAirtelMoney,
@@ -691,19 +681,6 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-              Opening Cash Float (K)
-            </label>
-            <input
-              type="number"
-              placeholder="0.00"
-              value={openingFloat === 0 ? '' : openingFloat}
-              onChange={(e) => setOpeningFloat(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-              disabled={isLockedForBranch}
-              className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-bold disabled:bg-slate-100"
-            />
-          </div>
         </div>
 
         {/* Step 2: Product SKU Quick Selector & Active Sale Lines */}
@@ -844,37 +821,47 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
           )}
         </div>
 
-        {/* Step 3: Payment Breakdown */}
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-          <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-            Payment Breakdown (Must Equal Total Sales: K{totalSalesAmount.toFixed(2)})
-          </h3>
 
+        {/* Step 3: Collections & Discrepancies */}
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+              Sales Breakdown & Reconciliation
+            </h3>
+            <span
+              className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                Math.abs(cashVariance) < 0.01
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-rose-100 text-rose-800'
+              }`}
+            >
+              {Math.abs(cashVariance) < 0.01
+                ? '✓ 100% Balanced'
+                : `⚠ Discrepancy: ${cashVariance > 0 ? `K${cashVariance.toFixed(2)} (Shortage)` : `K${Math.abs(cashVariance).toFixed(2)} (Excess)`}`}
+            </span>
+          </div>
+          
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Cash Sales (K)
+                Physical Cash (K)
               </label>
               <input
-                id="input-sale-cash"
+                id="input-actual-cash-received"
                 type="number"
                 step="any"
                 min="0"
                 placeholder="0.00"
-                value={cashSales === 0 ? '' : cashSales}
+                value={actualCashReceived === 0 ? '' : actualCashReceived}
                 disabled={isLockedForBranch}
-                onChange={(e) => {
-                  hasManuallyEditedCashRef.current = true;
-                  setCashSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0);
-                }}
+                onChange={(e) => setActualCashReceived(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 disabled:bg-slate-100"
               />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center space-x-1">
                 <Smartphone className="w-3.5 h-3.5 text-red-500" />
-                <span>Airtel Direct Till (K)</span>
+                <span>Airtel Direct (K)</span>
               </label>
               <input
                 id="input-sale-airtel-direct"
@@ -888,26 +875,9 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-red-900 disabled:bg-slate-100"
               />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Bank / Card POS (K)
-              </label>
-              <input
-                type="number"
-                step="any"
-                min="0"
-                placeholder="0.00"
-                value={bankOrCardSales === 0 ? '' : bankOrCardSales}
-                disabled={isLockedForBranch}
-                onChange={(e) => setBankOrCardSales(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Credit / Account Sales (K)
+                Credit Sales (K)
               </label>
               <input
                 type="number"
@@ -920,13 +890,27 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
                 className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-amber-900 disabled:bg-slate-100"
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Variance (K)
+              </label>
+              <div
+                className={`w-full px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                  cashVariance === 0
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                    : 'bg-rose-50 text-rose-800 border-rose-300'
+                }`}
+              >
+                {cashVariance > 0 ? `+${cashVariance.toFixed(2)}` : cashVariance < 0 ? `-${Math.abs(cashVariance).toFixed(2)}` : '0.00'}
+              </div>
+            </div>
           </div>
 
           {/* If credit sales occur, allow debtor selection */}
           {creditSales > 0 && (
             <div className="pt-2 border-t border-slate-200 flex items-center space-x-3">
               <label className="text-xs font-bold text-amber-900">
-                Credit Customer / Debtor:
+                Select Credit Customer:
               </label>
               <select
                 value={selectedDebtorId}
@@ -936,81 +920,12 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
               >
                 {debtors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({d.code}) - Balance: K{d.outstandingBalance.toLocaleString()}
+                    {d.name} ({d.code})
                   </option>
                 ))}
               </select>
             </div>
           )}
-        </div>
-
-        {/* Step 4: Cash Drawer Reconciliation */}
-        <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-200 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <DollarSign className="w-5 h-5 text-amber-700" />
-              <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                Cash Drawer Reconciliation &amp; Audit
-              </h3>
-            </div>
-            <span
-              className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                Math.abs(cashVariance) < 0.01
-                  ? 'bg-emerald-100 text-emerald-800'
-                  : 'bg-rose-100 text-rose-800'
-              }`}
-            >
-              {Math.abs(cashVariance) < 0.01
-                ? '✓ 100% Balanced'
-                : `⚠ Discrepancy: ${cashVariance < 0 ? `-K${Math.abs(cashVariance)} (Shortage)` : `+K${cashVariance} (Surplus)`}`}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Expected Cash from Sales (K)
-              </label>
-              <div className="px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs">
-                K{expectedCashFromSales.toFixed(2)}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Actual Physical Cash Counted (K) *
-              </label>
-              <input
-                id="input-actual-cash-received"
-                type="number"
-                step="any"
-                min="0"
-                placeholder="0.00"
-                value={actualCashReceived === 0 ? '' : actualCashReceived}
-                disabled={isLockedForBranch}
-                onChange={(e) => {
-                  hasManuallyEditedActualCashRef.current = true;
-                  setActualCashReceived(e.target.value === '' ? 0 : parseFloat(e.target.value) || 0);
-                }}
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-black text-slate-900 disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Cash Variance (K)
-              </label>
-              <div
-                className={`px-3 py-2 rounded-xl font-black text-xs border ${
-                  cashVariance === 0
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-rose-50 text-rose-800 border-rose-300'
-                }`}
-              >
-                {cashVariance >= 0 ? `+K${cashVariance.toFixed(2)}` : `-K${Math.abs(cashVariance).toFixed(2)}`}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Step 5: Cash Sent to Airtel Money */}
@@ -1162,7 +1077,7 @@ export const DailySalesForm: React.FC<DailySalesFormProps> = ({ onSuccess, defau
               Closing Drawer Cash: <strong className="text-slate-900 font-bold">K{closingCashInDrawer.toFixed(2)}</strong>
             </div>
             <div>
-              (Opening Float K{openingFloat} + Counted Cash K{actualCashReceived} - Airtel K{cashSentToAirtelMoney} - Petty K{totalPettyExpenses})
+              (Opening Float K{0} + Counted Cash K{actualCashReceived} - Airtel K{cashSentToAirtelMoney} - Petty K{totalPettyExpenses})
             </div>
           </div>
 

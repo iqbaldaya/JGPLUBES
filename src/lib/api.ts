@@ -1,5 +1,19 @@
 // src/lib/api.ts
 export const api = {
+  async getExpenses() {
+    const res = await fetch('/api/expenses');
+    if (!res.ok) throw new Error('Failed to fetch expenses');
+    return res.json();
+  },
+  async createExpense(data: any) {
+    const res = await fetch('/api/expenses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create expense');
+    return res.json();
+  },
   async bootstrap() {
     try {
       const res = await fetch('/api/bootstrap');

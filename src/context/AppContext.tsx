@@ -9,6 +9,7 @@ import {
   AirtelRecord,
   Debtor,
   DebtorTransaction,
+  Expense,
   Supplier,
   SupplierTransaction,
   StockReconciliation,
@@ -65,6 +66,7 @@ interface AppContextType {
   airtelRecords: AirtelRecord[];
   debtors: Debtor[];
   debtorTransactions: DebtorTransaction[];
+  expenses: Expense[];
   totalDebtorsBalance: number;
   suppliers: Supplier[];
   supplierTransactions: SupplierTransaction[];
@@ -475,6 +477,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_debtor_tx`);
     return saved ? JSON.parse(saved) : INITIAL_DEBTOR_TRANSACTIONS;
   });
+  const [expenses, setExpenses] = useState<Expense[]>([]);
 
   const [ownerTreasury, setOwnerTreasury] = useState<OwnerTreasury>(() => {
     const saved = localStorage.getItem(`${LOCAL_STORAGE_KEY}_owner_treasury`);
@@ -538,6 +541,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         if (Array.isArray(data.debtorTransactions)) {
           setIfChanged(setDebtorTransactions, data.debtorTransactions);
+        }
+        if (Array.isArray(data.expenses)) {
+          setIfChanged(setExpenses, data.expenses);
         }
         if (Array.isArray(data.suppliers)) {
           setIfChanged(setSuppliers, data.suppliers);
@@ -1063,16 +1069,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       });
     }
 
-    if (pettyExp > 0) {
-      addCashRecord({
-        date: sale.date,
-        details: `Daily Petty Expenses - ${sale.branchName} (${sale.shift})`,
-        debit: 0,
-        credit: pettyExp,
-        referenceNo: `EXP-${sale.branchCode || 'BR'}-${Date.now().toString().slice(-4)}`,
-        category: 'PETTY_CASH',
-        branchId: sale.branchId,
-        branchName: sale.branchName,
+    if (sale.pettyCashExpenses && sale.pettyCashExpenses.length > 0) {
+      sale.pettyCashExpenses.forEach((exp, idx) => {
+        const expData = {
+          id: `exp-${Date.now()}-${idx}`,
+          branchId: sale.branchId,
+          branchName: sale.branchName,
+          date: sale.date,
+          description: exp.description,
+          amount: exp.amount,
+          category: 'Daily Sale Expense',
+          reference: sale.id,
+          createdAt: new Date().toISOString()
+        };
+        api.createExpense(expData).catch(console.error);
       });
     }
 
@@ -1848,7 +1858,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSuppliers((prev) =>
       prev.map((s) => (s.id === supplierId ? { ...s, ...updates } : s))
     );
-    api.updateSupplier(supplierId, updates).catch(console.error);
+    api.updateSupplier?.(supplierId, updates).catch(console.error);
   };
 
   const deleteSupplier = (supplierId: string): { success: boolean; message: string } => {
@@ -3004,7 +3014,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
 
     const finalTx = nextTxs.find((t) => t.id === newId) || newTx;
-    api.createDebtorTransaction(finalTx).catch(console.error);
+    api.createDebtorTransaction?.(finalTx).catch(console.error);
 
     return finalTx;
   };
@@ -3083,7 +3093,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const createdTx = nextTxs.find((t) => t.id === newId) || newTx;
-    api.createDebtorTransaction(createdTx).catch(console.error);
+    api.createDebtorTransaction?.(createdTx).catch(console.error);
 
     return {
       success: true,
@@ -3114,7 +3124,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const nextTxs = recalculateDebtorRunningBalances(rawUpdated);
     setDebtorTransactions(nextTxs);
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
-    api.updateDebtorTransaction(id, updates).catch(console.error);
+    api.updateDebtorTransaction?.(id, updates).catch(console.error);
 
     return { success: true, message: 'Debtor transaction entry updated successfully.' };
   };
@@ -3129,7 +3139,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const nextTxs = recalculateDebtorRunningBalances(filtered);
     setDebtorTransactions(nextTxs);
     setDebtors((prev) => recalculateDebtors(prev, nextTxs));
-    api.deleteDebtorTransaction(id).catch(console.error);
+    api.deleteDebtorTransaction?.(id).catch(console.error);
     return { success: true, message: 'Debtor transaction deleted and balance updated.' };
   };
 
@@ -4377,6 +4387,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         airtelRecords,
         debtors,
         debtorTransactions,
+        expenses,
         totalDebtorsBalance,
         suppliers,
         supplierTransactions,
